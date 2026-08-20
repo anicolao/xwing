@@ -80,6 +80,12 @@
       action === 'pass' ? 'Action passed.' : `${shipById(shipId)!.name} performed ${action}.`
     );
   }
+  function repair(shipId: string, cardId: string, title: string) {
+    perform(
+      () => appendEvent({ type: 'damage/repaired', actor: 'table', payload: { shipId, cardId } }),
+      `${shipById(shipId)!.name} repaired ${title}.`
+    );
+  }
   function target(defenderId: string) {
     perform(
       () =>
@@ -404,6 +410,14 @@
         <button onclick={() => act(activeShip!.id, action)} disabled={activeShip.stress > 0 || activeShip.skipAction}>
           <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />{action}
         </button>
+      {/each}
+      {#each activeShip.damage.filter((card) => card.faceup && (card.id.startsWith('weapons-failure-') || card.id.startsWith('structural-damage-'))) as card}
+        <button
+          class="repair"
+          onclick={() => repair(activeShip!.id, card.id, card.title)}
+          disabled={activeShip.stress > 0 || activeShip.skipAction}
+          aria-label={`Repair ${card.title}`}>Repair {card.title}</button
+        >
       {/each}
       <button onclick={() => act(activeShip!.id, 'pass')}>Pass</button>
     </nav>
@@ -747,6 +761,10 @@
     background: #133247;
     color: white;
     text-transform: capitalize;
+  }
+  .action-strip .repair {
+    border-color: #efbb58;
+    background: #5a3a18;
   }
   .action-strip img {
     width: 30px;

@@ -241,6 +241,31 @@ describe('event reducer', () => {
     expect(defense.state.pending).toBe('damage');
     expect(defense.state.ships['onyx-one']?.evade).toBe(0);
   });
+  it('repairs enabled faceup ship damage as the active ship action', () => {
+    const state = createInitialState('duel');
+    state.phase = 'activation';
+    state.pending = 'action';
+    state.activeShipId = 'red-five';
+    state.revision = 8;
+    state.ships['red-five']!.damage.push({ id: 'weapons-failure-1', faceup: true, title: 'Weapons Failure' });
+    const result = applyEvent(
+      state,
+      event({
+        id: 'e9',
+        type: 'damage/repaired',
+        actor: 'table',
+        sequence: 9,
+        payload: { shipId: 'red-five', cardId: 'weapons-failure-1' }
+      })
+    );
+    expect(result.diagnostic).toBeUndefined();
+    expect(result.state.ships['red-five']!.damage[0]).toEqual({
+      id: 'weapons-failure-1',
+      faceup: false,
+      title: 'Facedown damage'
+    });
+    expect(result.state.ships['red-five']!.activated).toBe(true);
+  });
 });
 
 describe('standard damage deck', () => {

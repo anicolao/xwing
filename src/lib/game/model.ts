@@ -81,6 +81,7 @@ export type GameEvent =
   | EventBase<'planning/committed', { seat: Seat }>
   | EventBase<'activation/revealed', { shipId: string }>
   | EventBase<'activation/action', { shipId: string; action: Action | 'pass'; targetId?: string }>
+  | EventBase<'damage/repaired', { shipId: string; cardId: string }>
   | EventBase<'engagement/targeted', { attackerId: string; defenderId: string }>
   | EventBase<'engagement/passed', { attackerId: string }>
   | EventBase<'engagement/rolled', Record<string, never>>

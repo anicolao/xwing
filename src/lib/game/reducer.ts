@@ -258,6 +258,29 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       nextActivation(state);
       break;
     }
+    case 'damage/repaired': {
+      const ship = state.ships[event.payload.shipId];
+      const card = ship?.damage.find((damage) => damage.id === event.payload.cardId);
+      const repairable = card?.id.startsWith('weapons-failure-') || card?.id.startsWith('structural-damage-');
+      if (
+        event.actor !== 'table' ||
+        state.phase !== 'activation' ||
+        state.pending !== 'action' ||
+        ship?.id !== state.activeShipId ||
+        ship.stress > 0 ||
+        ship.skipAction ||
+        !card?.faceup ||
+        !repairable
+      )
+        return reject('That faceup damage card cannot be repaired as this ship’s action.');
+      const title = card.title;
+      card.faceup = false;
+      card.title = 'Facedown damage';
+      ship.activated = true;
+      state.log.push(`${shipById(ship.id)!.name} repaired ${title}.`);
+      nextActivation(state);
+      break;
+    }
     case 'engagement/targeted': {
       const attacker = state.ships[event.payload.attackerId];
       const defender = state.ships[event.payload.defenderId];
