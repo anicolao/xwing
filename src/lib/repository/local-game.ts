@@ -9,6 +9,7 @@ import {
   collection,
   connectFirestoreEmulator,
   doc,
+  getDoc,
   getDocs,
   initializeFirestore,
   onSnapshot,
@@ -16,6 +17,7 @@ import {
   query,
   runTransaction,
   setDoc,
+  writeBatch,
   type Firestore
 } from 'firebase/firestore';
 
@@ -25,6 +27,11 @@ const useFirestore = browser && (env.PUBLIC_FIREBASE_EMULATOR === 'true' || Bool
 
 export const ROOM_ID = 'FLIGHT7';
 export const pairingCode: Record<Seat, string> = { rebel: 'RED-5', imperial: 'ONYX-2' };
+export interface PairingCredential {
+  code: string;
+  token: string;
+}
+export type PairingCredentials = Record<Seat, PairingCredential>;
 type EventInput = GameEvent extends infer Event
   ? Event extends GameEvent
     ? Omit<Event, 'id' | 'sequence'>
@@ -60,6 +67,17 @@ function remoteClient() {
     return { auth, db };
   })();
   return remote;
+}
+
+function createPairingCredentials(): PairingCredentials {
+  const token = (seat: Seat) =>
+    env.PUBLIC_FIREBASE_EMULATOR === 'true'
+      ? `e2e-${seat}-claim-capability`
+      : `${seat}-${crypto.randomUUID()}-${crypto.randomUUID()}`;
+  return {
+    rebel: { code: pairingCode.rebel, token: token('rebel') },
+    imperial: { code: pairingCode.imperial, token: token('imperial') }
+  };
 }
 
 async function readRemote(roomId: string) {
@@ -117,8 +135,10 @@ export function subscribeToRoom(roomId: string, listener: (events: GameEvent[]) 
   let unsubscribe = () => {};
   void remoteClient().then(({ db }) => {
     if (stopped) return;
-    unsubscribe = onSnapshot(query(collection(db, 'games', roomId, 'events'), orderBy('sequence')), (snapshot) =>
-      listener(snapshot.docs.map((entry) => entry.data() as GameEvent))
+    unsubscribe = onSnapshot(
+      query(collection(db, 'games', roomId, 'events'), orderBy('sequence')),
+      (snapshot) => listener(snapshot.docs.map((entry) => entry.data() as GameEvent)),
+      () => listener([])
     );
   });
   return () => {
@@ -127,30 +147,68 @@ export function subscribeToRoom(roomId: string, listener: (events: GameEvent[]) 
   };
 }
 
-export async function createRoom(roomId = ROOM_ID) {
-  if (!browser) return;
+export async function createRoom(roomId = ROOM_ID): Promise<PairingCredentials> {
+  const credentials = createPairingCredentials();
+  if (!browser) return credentials;
   if (!useFirestore) {
     localStorage.removeItem(key(roomId));
     await appendEvent(
       { type: 'game/created', actor: 'table', payload: { gameId: roomId, seed: 0x5857494e, config: GAME_CONFIG } },
       roomId
     );
-    return;
+    return credentials;
   }
   const { auth, db } = await remoteClient();
   await setDoc(doc(db, 'games', roomId), {
     revision: 0,
     tableUid: auth.currentUser!.uid,
+    rebelUid: null,
+    imperialUid: null,
+    pairingEpoch: 1,
     createdAt: Date.now(),
     updatedAt: Date.now()
   });
+  const claims = writeBatch(db);
+  for (const seat of ['rebel', 'imperial'] as const) {
+    claims.set(doc(db, 'games', roomId, 'claims', credentials[seat].token), {
+      seat,
+      code: credentials[seat].code,
+      expiresAt: Date.now() + 10 * 60 * 1_000,
+      used: false
+    });
+  }
+  await claims.commit();
   await appendEvent(
     { type: 'game/created', actor: 'table', payload: { gameId: roomId, seed: 0x5857494e, config: GAME_CONFIG } },
     roomId
   );
+  return credentials;
 }
 
-export async function claimSeat(roomId: string, seat: Seat, code: string) {
+export async function claimSeat(roomId: string, seat: Seat, code: string, token: string) {
   if (code.toUpperCase() !== pairingCode[seat]) throw new Error('Pairing code does not match this seat.');
+  if (useFirestore) {
+    const { auth, db } = await remoteClient();
+    const claim = doc(db, 'games', roomId, 'claims', token);
+    const room = doc(db, 'games', roomId);
+    const enrollment = writeBatch(db);
+    enrollment.update(room, {
+      [`${seat}Uid`]: auth.currentUser!.uid,
+      lastClaimToken: token,
+      updatedAt: Date.now()
+    });
+    enrollment.update(claim, { used: true, claimedBy: auth.currentUser!.uid });
+    await enrollment.commit();
+  }
   await appendEvent({ type: 'player/joined', actor: seat, payload: { seat } }, roomId);
+}
+
+export async function canAccessRoom(roomId: string) {
+  if (!useFirestore) return readLocal(roomId).length > 0;
+  try {
+    const { db } = await remoteClient();
+    return (await getDoc(doc(db, 'games', roomId))).exists();
+  } catch {
+    return false;
+  }
 }

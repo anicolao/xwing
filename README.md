@@ -29,8 +29,9 @@ against Auth and Firestore emulators in three isolated browser contexts: one
 3840×2160 table and two 393×852 phones. The deployed PR preview intentionally
 falls back to local persistence because this repository has no Firebase web
 configuration; supplying the three `PUBLIC_FIREBASE_*` values from
-[`.env.example`](.env.example) enables real cross-device transport. Pairing
-codes preserve the ordinary UI boundary but are not cryptographic secrecy.
+[`.env.example`](.env.example) enables real cross-device transport. QR links
+carry single-use, ten-minute seat capabilities; the short display codes are a
+human confirmation, not the security credential.
 
 ## Project documents
 
@@ -87,12 +88,12 @@ model:
 - accessible UI proven on the 4K tabletop from opposing orientations and on
   the minimal private phone surface.
 
-The proposed multiplayer model is a trustworthy client, not a secure referee.
-The current Firestore Security Rules require authentication and make accepted
-event documents create-only. Per-seat membership enforcement remains part of
-the server-authoritative hardening boundary; a modified authenticated client
-could inspect private maneuver selections or future randomized state. The
-ordinary client preserves the physical game's UI boundaries.
+The multiplayer model is a trustworthy client, not a secure referee. Firestore
+Rules restrict room reads to the table and two claimed seat identities, bind
+each event actor to its authenticated member, and make accepted event documents
+create-only. A modified room-member client could still inspect the other
+player's private maneuver events or future randomized state; the ordinary
+client preserves the physical game's UI boundaries.
 
 The repository includes the Nix-pinned client, `/tt` shared table, `/hand`
 private companion, `/replay` event inspector, pure tests, multi-surface browser

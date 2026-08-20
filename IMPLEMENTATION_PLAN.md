@@ -284,7 +284,8 @@ update state.
   coverage rather than the intended game UI.
 - [x] Define table-created pairing with two seat QR codes, single-seat claims,
   and visible connection state.
-- [ ] Add short-lived claims and explicit unpair/re-pair.
+- [x] Add single-use, short-lived seat claims enforced by Firestore Rules.
+- [ ] Add explicit unpair/re-pair after the fixed teaching duel begins.
 - [x] Add a Playwright story with one 3840x2160 table surface and two 393x852
   phone surfaces.
 - [x] Move the E2E phones into isolated anonymous-authenticated browser

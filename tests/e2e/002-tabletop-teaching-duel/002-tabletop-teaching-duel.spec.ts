@@ -36,12 +36,19 @@ test('two seats plan privately and resolve a public attack on the shared table',
   await page.goto('/tt');
   await page.getByRole('button', { name: 'Create tabletop room' }).click();
   await expect(page.getByRole('heading', { name: 'PAIR BOTH PRIVATE HANDS' })).toBeVisible();
-  await rebel.goto('/hand?room=FLIGHT7&seat=rebel&code=RED-5');
-  await imperial.goto('/hand?room=FLIGHT7&seat=imperial&code=ONYX-2');
+  await rebel.goto('/hand?room=FLIGHT7&seat=rebel&code=RED-5&token=e2e-rebel-claim-capability');
+  await imperial.goto('/hand?room=FLIGHT7&seat=imperial&code=ONYX-2&token=e2e-imperial-claim-capability');
   await rebel.getByRole('button', { name: 'Claim Rebel seat' }).click();
   await expect(rebel.getByText('LINKED', { exact: true })).toBeVisible();
   await imperial.getByRole('button', { name: 'Claim Imperial seat' }).click();
   await expect(imperial.getByText('LINKED', { exact: true })).toBeVisible();
+  const thiefContext = await browser.newContext({ viewport: { width: 393, height: 852 } });
+  const thief = await thiefContext.newPage();
+  await thief.goto('/hand?room=FLIGHT7&seat=rebel&code=RED-5&token=e2e-rebel-claim-capability');
+  await thief.getByRole('button', { name: 'Claim Rebel seat' }).click();
+  await expect(thief.getByText('LINKED', { exact: true })).toHaveCount(0);
+  await expect(thief.getByRole('status')).toContainText(/permission|claimed|expired/i);
+  await thiefContext.close();
   const surfaces = [
     { id: 'table-4k', label: 'Shared 4K tabletop', page },
     { id: 'rebel-phone', label: 'Rebel private hand', page: rebel },
@@ -327,10 +334,14 @@ test('two seats plan privately and resolve a public attack on the shared table',
   });
 
   const replayLink = page.getByRole('link', { name: 'Replay', exact: true });
-  const replayContext = await browser.newContext({ viewport: { width: 2560, height: 1440 } });
-  const replayPage = await replayContext.newPage();
+  const replayPage = await page.context().newPage();
+  await replayPage.setViewportSize({ width: 2560, height: 1440 });
   watch('replay', replayPage);
   await replayPage.goto((await replayLink.getAttribute('href')) ?? '/replay?room=FLIGHT7');
+  const outsiderContext = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const outsiderReplay = await outsiderContext.newPage();
+  await outsiderReplay.goto('/replay?room=FLIGHT7');
+  await expect(outsiderReplay.locator('aside li')).toHaveCount(0);
   await steps.step('immutable-replay', {
     description: 'The accepted event history can be replayed at every prefix',
     surfaces: [{ id: 'replay', label: 'Public event replay', page: replayPage }],
@@ -367,5 +378,5 @@ test('two seats plan privately and resolve a public attack on the shared table',
   });
 
   steps.generateDocs();
-  await Promise.all([rebelContext.close(), imperialContext.close(), replayContext.close()]);
+  await Promise.all([rebelContext.close(), imperialContext.close(), outsiderContext.close(), replayPage.close()]);
 });

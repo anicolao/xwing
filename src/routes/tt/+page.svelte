@@ -8,7 +8,14 @@
   import { replay } from '$lib/game/reducer';
   import type { GameState } from '$lib/game/model';
   import { setupOrder, shipById, teachingDuel, type Action, type Seat } from '$lib/manifests/teaching-duel';
-  import { appendEvent, createRoom, pairingCode, ROOM_ID, subscribeToRoom } from '$lib/repository/local-game';
+  import {
+    appendEvent,
+    canAccessRoom,
+    createRoom,
+    pairingCode,
+    ROOM_ID,
+    subscribeToRoom
+  } from '$lib/repository/local-game';
 
   let game: GameState = $state(publicProjection(replay([]).state));
   let ready = $state(false);
@@ -22,16 +29,23 @@
   let imperialUrl = $state('');
   let confirmConcession = $state<Seat | null>(null);
   let busy = $state(false);
+  let reconnect = () => {};
 
   onMount(() => {
-    const route = `${location.origin}${base}/hand?room=${ROOM_ID}`;
-    rebelUrl = `${route}&seat=rebel&code=${pairingCode.rebel}`;
-    imperialUrl = `${route}&seat=imperial&code=${pairingCode.imperial}`;
-    const unsubscribe = subscribeToRoom(ROOM_ID, (events) => {
-      game = publicProjection(replay(events).state);
-      ready = true;
+    let unsubscribe = () => {};
+    const connect = () => {
+      unsubscribe();
+      unsubscribe = subscribeToRoom(ROOM_ID, (events) => {
+        game = publicProjection(replay(events).state);
+        ready = true;
+      });
+    };
+    void canAccessRoom(ROOM_ID).then((access) => {
+      if (access) connect();
+      else ready = true;
     });
-    return unsubscribe;
+    reconnect = connect;
+    return () => unsubscribe();
   });
 
   async function perform(action: () => void | Promise<unknown>, message: string) {
@@ -48,7 +62,13 @@
   }
 
   function openRoom() {
-    perform(() => createRoom(), 'Room FLIGHT7 opened. Pair each phone to its own seat.');
+    perform(async () => {
+      const credentials = await createRoom();
+      const route = `${location.origin}${base}/hand?room=${ROOM_ID}`;
+      rebelUrl = `${route}&seat=rebel&code=${credentials.rebel.code}&token=${encodeURIComponent(credentials.rebel.token)}`;
+      imperialUrl = `${route}&seat=imperial&code=${credentials.imperial.code}&token=${encodeURIComponent(credentials.imperial.token)}`;
+      reconnect();
+    }, 'Room FLIGHT7 opened. Pair each phone to its own seat. Pairing links expire in ten minutes.');
   }
   function readySeat(seat: Seat) {
     perform(

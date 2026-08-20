@@ -5,11 +5,19 @@
   import { handProjection } from '$lib/game/selectors';
   import { replay } from '$lib/game/reducer';
   import { shipById, type Seat } from '$lib/manifests/teaching-duel';
-  import { appendEvent, claimSeat, pairingCode, ROOM_ID, subscribeToRoom } from '$lib/repository/local-game';
+  import {
+    appendEvent,
+    canAccessRoom,
+    claimSeat,
+    pairingCode,
+    ROOM_ID,
+    subscribeToRoom
+  } from '$lib/repository/local-game';
 
   let seat = $state<Seat>('rebel');
   let room = $state(ROOM_ID);
   let code = $state('');
+  let token = $state('');
   let paired = $state(false);
   let ready = $state(false);
   let message = $state('This phone will show only your private maneuver dials.');
@@ -21,13 +29,25 @@
     seat = query.get('seat') === 'imperial' ? 'imperial' : 'rebel';
     room = query.get('room') ?? ROOM_ID;
     code = query.get('code') ?? pairingCode[seat];
-    const unsubscribe = subscribeToRoom(room, (events) => {
-      projection = handProjection(replay(events).state, seat);
-      paired = projection.connected;
-      ready = true;
+    token = query.get('token') ?? '';
+    let unsubscribe = () => {};
+    const connect = () => {
+      unsubscribe();
+      unsubscribe = subscribeToRoom(room, (events) => {
+        projection = handProjection(replay(events).state, seat);
+        paired = projection.connected;
+        ready = true;
+      });
+    };
+    void canAccessRoom(room).then((access) => {
+      if (access) connect();
+      else ready = true;
     });
-    return unsubscribe;
+    reconnect = connect;
+    return () => unsubscribe();
   });
+
+  let reconnect = () => {};
 
   async function perform(action: () => Promise<unknown>, success: string, fallback: string) {
     if (busy) return;
@@ -43,7 +63,10 @@
   }
   const pair = () =>
     perform(
-      () => claimSeat(room, seat, code),
+      async () => {
+        await claimSeat(room, seat, code, token);
+        reconnect();
+      },
       `${seat === 'rebel' ? 'Rebel' : 'Imperial'} hand paired. Return attention to the table.`,
       'Pairing failed.'
     );
