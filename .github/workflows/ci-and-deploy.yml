@@ -43,11 +43,25 @@ jobs:
           fi
         env:
           CI: 'true'
-      - name: Verify nested pull-request build
+      - name: Determine verified base path
+        id: verified-build
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "base=/xwing/pr${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=/xwing" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build deployable static client
         run: nix develop --command bun run build
         env:
-          PUBLIC_BASE_PATH: /xwing/pr${{ github.event.pull_request.number || 'local' }}
+          PUBLIC_BASE_PATH: ${{ steps.verified-build.outputs.base }}
           VITE_GIT_HASH: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/upload-artifact@v6
+        with:
+          name: verified-static-site
+          path: build/
+          retention-days: 7
       - uses: actions/upload-artifact@v6
         if: inputs.update_snapshots == true && always()
         with:
@@ -72,25 +86,19 @@ jobs:
       cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: cachix/install-nix-action@v31
-      - run: nix develop --command bun install --frozen-lockfile
+      - uses: actions/download-artifact@v7
+        with:
+          name: verified-static-site
+          path: build
       - name: Determine deployment path
         id: deployment
         shell: bash
         run: |
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            echo "base=/xwing/pr${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
             echo "destination=pr${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
           else
-            echo "base=/xwing" >> "$GITHUB_OUTPUT"
             echo "destination=" >> "$GITHUB_OUTPUT"
           fi
-      - name: Build static client
-        run: nix develop --command bun run build
-        env:
-          PUBLIC_BASE_PATH: ${{ steps.deployment.outputs.base }}
-          VITE_GIT_HASH: ${{ github.event.pull_request.head.sha || github.sha }}
       - name: Check out retained Pages content
         uses: actions/checkout@v6
         with:
@@ -134,7 +142,7 @@ jobs:
             https://${{ github.repository_owner }}.github.io/xwing/pr${{
             github.event.pull_request.number }}/
         run: >-
-          nix develop --command gh pr comment "$PR_NUMBER"
+          gh pr comment "$PR_NUMBER"
           --repo "$GITHUB_REPOSITORY"
           --edit-last
           --create-if-none
