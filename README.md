@@ -38,8 +38,12 @@ reference.
 - Reconnect and replay from a complete immutable event history.
 - A rules-visible interface that explains why an action, target, or maneuver
   is legal or illegal.
-- Keyboard-, pointer-, touch-, phone-, tablet-, and desktop-friendly controls,
-  with a shared-table mode considered after the normal two-device experience.
+- One shared 3840x2160 landscape tabletop as the authoritative public control
+  surface, readable and operable by players seated at opposing long edges.
+- Two seat-specific phones used only for hidden maneuver planning and any later
+  choice that can be shown to require genuine privacy.
+- Orientation-independent rules geometry, with seat-edge controls and public
+  information presented readably from either side of the table.
 - Original presentation assets; official art, logos, card layouts, miniature
   renders, faction marks, and trade dress are not repository assets.
 
@@ -58,9 +62,11 @@ model:
 - one append-only event stream at `games/{gameId}/events/{eventId}`;
 - deterministic, versioned reducers, geometry, randomization, and replay;
 - Vitest for pure rules and geometry tests;
-- Playwright against Firebase emulators for real two-browser scenarios;
+- Playwright against Firebase emulators with one table and two isolated phone
+  contexts;
 - semantic assertions, screenshot baselines, and generated walkthroughs; and
-- accessible UI proven at phone, tablet, tabletop, and desktop viewports.
+- accessible UI proven on the 4K tabletop from opposing orientations and on
+  the minimal private phone surface.
 
 The proposed multiplayer model is a trustworthy client, not a secure referee.
 Firestore Security Rules can enforce membership, attribution, and immutable
@@ -69,10 +75,12 @@ future randomized state. The ordinary client must preserve the physical
 game's information boundaries; cryptographic secrecy or server-authoritative
 validation is a separate future project.
 
-The repository includes a Nix-pinned SvelteKit/Bun scaffold, phone and desktop
-Playwright smoke coverage, and static GitHub Pages deployment. Pull request
-`N` is retained at `https://anicolao.github.io/xwing/prN/`; the main branch is
-published at `https://anicolao.github.io/xwing/`.
+The repository includes a Nix-pinned SvelteKit/Bun scaffold, initial phone and
+desktop shell smoke coverage, and static GitHub Pages deployment. That smoke
+test protects the foundation; it is not the target gameplay layout. MVP work
+adds a shared-table route and a deliberately narrow private-hand route. Pull
+request `N` is retained at `https://anicolao.github.io/xwing/prN/`; the main
+branch is published at `https://anicolao.github.io/xwing/`.
 
 ## Development
 

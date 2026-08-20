@@ -3,15 +3,20 @@
 ## Objective
 
 Deliver the fixed Second Edition Core Set teaching duel defined in
-[VISION.md](VISION.md) as a realtime two-browser game. The first ruleset is
-`ffg-second-edition-1.3.2`; later Atomic Mass Games formats are separate,
-versioned products rather than silent amendments.
+[VISION.md](VISION.md) as a tabletop-first realtime game. The primary interface
+is one shared 4K landscape display laid flat between two players seated on
+opposite sides. Two seat-specific phones are companion surfaces used only for
+the rare choices that must remain private, beginning with maneuver selection.
+The first ruleset is `ffg-second-edition-1.3.2`; later Atomic Mass Games formats
+are separate, versioned products rather than silent amendments.
 
 This plan follows the tracer-bullet model used by the sibling `jaipur` and
-`roborally` projects: every gameplay increment begins with a real browser
-action, crosses the production event, reducer, geometry, persistence, and
-rendering paths, and ends in an observable result verified by Playwright. The
-browser contract is enumerated in [E2E_GUIDE.md](E2E_GUIDE.md).
+`roborally` projects: every gameplay increment begins on the correct physical
+surface, crosses the production event, reducer, geometry, persistence, and
+rendering paths, and ends in an observable result verified by Playwright.
+Public actions begin and end on the shared table; private choices begin on the
+owning phone and become public on the table only when the rules reveal them.
+The executable contract is enumerated in [E2E_GUIDE.md](E2E_GUIDE.md).
 
 ## Definition of a complete change
 
@@ -22,14 +27,16 @@ include the smallest coherent vertical slice of:
 2. deterministic reducer and geometry behavior;
 3. immutable event-stream and Firestore Rules coverage;
 4. accessible controls, status, and explanations;
-5. a real browser scenario through the Firebase emulators;
+5. a real multi-surface browser scenario through the Firebase emulators;
 6. semantic assertions and deterministic screenshots;
 7. pure tests for combinatorial or boundary cases; and
 8. documentation updates for changed protocols, sources, or invariants.
 
-A rules-only simulation, a board driven by mock state, or multiplayer behavior
-without two-browser proof is not a complete slice. Refactors preserve the
-entire E2E suite.
+A rules-only simulation, a board driven by mock state, a phone-only public
+action, or multiplayer behavior without shared-table-and-two-phone proof is
+not a complete slice. A gameplay slice that has no private choice need not add
+a new phone control, but it must prove that both phone projections remain free
+of public gameplay controls. Refactors preserve the entire E2E suite.
 
 Run all project commands through the Nix development shell:
 
@@ -55,6 +62,11 @@ nix develop --command bun run verify:change
 - Every randomized result uses a committed seed and a versioned PRNG.
 - Original artwork decorates semantic objects; it never carries the only copy
   of a value, direction, identity, or legal choice.
+- The shared table is the authoritative public control surface, not a passive
+  mirror or spectator view. Phones never become miniature copies of it.
+- Rules geometry has one canonical world orientation. Display rotation,
+  seat-relative labels, camera state, and control placement are presentation
+  state and cannot change a maneuver, arc, range, overlap, or placement ruling.
 
 The initial trustworthy-client architecture preserves hidden information in
 the ordinary UI but is not a cryptographic referee. A modified client may be
@@ -69,7 +81,9 @@ src/lib/geometry/    fixed-point shapes, transforms, range, arc, and collision
 src/lib/game/        event types, validation, reducer, PRNG, and diagnostics
 src/lib/repository/  authentication, append-only Firestore access, replay/cache
 src/lib/components/  accessible controls and rules-visible presentation
-src/routes/          lobby, player game view, replay, and later tabletop view
+src/routes/tt/       shared-table lobby, setup, public play, and result surface
+src/routes/hand/     seat pairing and the minimal private-choice surface
+src/routes/replay/   event-history inspection outside the live table flow
 tests/e2e/            numbered browser-visible product stories
 tests/fixtures/       explicitly non-authoritative development fixtures
 ```
@@ -77,6 +91,70 @@ tests/fixtures/       explicitly non-authoritative development fixtures
 Dependencies point inward: presentation and persistence call the pure game
 layer; the game layer may call reviewed manifests and geometry; neither pure
 layer imports browser or Firebase code.
+
+## MVP surface and interaction contract
+
+The physical setup is one landscape 4K display between two players, with one
+player at each opposing long edge. Each player may pair one phone to their
+seat. A game must remain playable from the table except at a rules-mandated
+hidden choice; a phone disconnect must never make an already-public choice
+unavailable on the table.
+
+| Activity | Required surface | Phone responsibility |
+| --- | --- | --- |
+| Create room and choose the fixed scenario | Shared table | Scan a seat QR code and authenticate that seat. |
+| Ready state, obstacle placement, and ship placement | Shared table | Show connection state only. |
+| Choose, revise, and commit hidden maneuvers | Owning phone | Show only that seat's dials and commitment controls. |
+| Reveal and execute maneuvers | Shared table | Show a brief waiting state; do not duplicate controls. |
+| Choose actions, targets, weapons, abilities, and passes | Shared table | No gameplay controls. |
+| Roll and modify dice; resolve damage and repairs | Shared table | No gameplay controls. |
+| Inspect public log, victory, replay, and rematch | Shared table | No gameplay controls. |
+
+The implementation must justify any later phone interaction by identifying the
+specific information that would be revealed if it appeared on the table. Mere
+convenience, reach, or conventional responsive-web practice is not enough.
+
+### Table orientation and reach
+
+- The default seats are the near and far long edges. Far-edge labels and
+  controls rotate 180 degrees so neither player must read an upside-down UI.
+- The battlefield keeps one canonical orientation. Ships, templates, ranges,
+  and arcs do not flip when control ownership changes.
+- Central public state is orientation-neutral, radial, or duplicated toward
+  both seats. Prompts appear at the active player's edge and may be mirrored as
+  read-only status at the opposite edge.
+- A table-level viewing rotation supports 0, 90, 180, and 270 degrees without
+  transforming canonical coordinates. The MVP interaction layout is optimized
+  for two opposing players at 0 and 180 degrees.
+- Controls belong in generous edge interaction zones and must not obscure the
+  geometry being judged. The active seat is communicated by text, shape, and
+  focus treatment rather than color alone.
+- Multi-touch input is accepted at the presentation layer, but canonical
+  choices remain serialized by the reducer's authorized actor and timing
+  window. Competing touches cannot produce two accepted actions.
+
+The primary visual target is 3840x2160 landscape at device scale factor 1. A
+2560x1440 landscape table is the development fallback. Seat phones target
+393x852 portrait for private planning. Ordinary desktop layouts may support
+development, replay, and accessibility, but are not the MVP play model.
+
+### Surface authority and projections
+
+Room membership distinguishes one `table` controller identity from two
+seat-member identities. The table identity may append setup events and public
+choices, declaring the `actingSeat` when the reducer is waiting for a specific
+player. A seat identity may append private Planning events only for its own
+seat. Firestore Rules enforce event-type permissions by identity role; the
+reducer independently enforces the current phase, timing window, and acting
+seat.
+
+Pairing links contain an unguessable, short-lived capability for exactly one
+seat and are invalid after a successful claim or explicit re-pair. They are a
+device-enrollment mechanism, not a promise of cryptographic gameplay secrecy.
+The table projects public state; each phone projects only connection status,
+its own unrevealed dials, and its private pending choices. Projection selectors
+are pure functions over the same canonical stream and receive an explicit
+surface role and, for phones, seat ID.
 
 ## Versioned source-data gates
 
@@ -103,7 +181,8 @@ and are visibly labelled non-authoritative.
 
 `GameConfig` commits the ruleset, reducer, geometry, PRNG, scenario, squad,
 dial, damage-deck, and card-manifest versions. It also records the initial
-seed, both seats, and empty expansion/house-rule lists.
+seed, table-controller identity, both seat identities, pairing epoch, and empty
+expansion/house-rule lists.
 
 Loading or replaying must stop with an explicit incompatibility diagnostic if
 any referenced version is absent. It must never substitute the newest data.
@@ -185,11 +264,12 @@ Keep the initial protocol intentionally small:
 Movement, overlap, token gain/spend, dice faces, damage, destruction, and
 victory are derived outcomes rather than redundant result events.
 
-Every event includes `type`, `payload`, `actorUid`, `clientSeq`, `createdAt`,
-`schemaVersion`, and `reducerVersion`. IDs use actor identity plus a padded
-sequence for idempotent retry. Timestamp and ID define a deterministic total
-order. Invalid, stale, duplicate, unauthorized, or incompatible events produce
-diagnostics and never partially update state.
+Every event includes `type`, `payload`, `actorUid`, `surfaceRole`, optional
+`actingSeat`, `clientSeq`, `createdAt`, `schemaVersion`, and `reducerVersion`.
+IDs use actor identity plus a padded sequence for idempotent retry. Timestamp
+and ID define a deterministic total order. Invalid, stale, duplicate,
+unauthorized, or incompatible events produce diagnostics and never partially
+update state.
 
 ## Milestone sequence
 
@@ -199,50 +279,69 @@ diagnostics and never partially update state.
 - [x] Add the SvelteKit/Bun/Nix scaffold and accessible application shell.
 - [x] Add phone and desktop Playwright smoke coverage.
 - [x] Deploy verified main and retained PR-specific static builds.
+- [ ] Replace the generic shell with distinct `/tt` shared-table and `/hand`
+  private-companion routes, while retaining the shell smoke test as foundation
+  coverage rather than the intended game UI.
+- [ ] Define table-created seat pairing: two short-lived seat QR codes,
+  single-seat claims, visible connection state, and explicit unpair/re-pair.
+- [ ] Add a Playwright harness with one 3840x2160 table context and two isolated
+  393x852 phone contexts.
 - [ ] Add formatting, unit-test, and Firestore emulator harnesses with one
   repository-managed verification command.
 
 Exit: a fresh clone can enter Nix, install locked dependencies, verify, build,
-and load the same shell locally and under a nested GitHub Pages path.
+and load the shared-table and private-hand routes locally and under a nested
+GitHub Pages path. The table can pair two isolated seat phones, and the three
+surfaces agree on room and seat identity.
 
 ### M1 — Geometry tracer
 
 - Version the fixed-point coordinate and tolerance policy.
 - Model small bases, guides, play-area edges, range ruler, straight/bank/turn
   templates, and the six obstacle paths.
-- Render one canonical board from the geometry model.
-- Provide keyboard, pointer, and touch pan/zoom without changing rules scale.
+- Render one canonical board on the 4K shared-table surface.
+- Present seat-edge controls at 0 and 180 degrees and rotate the table view in
+  quarter turns without changing canonical geometry.
+- Provide pointer, multi-touch, and keyboard pan/zoom without changing rules
+  scale, while keeping controls reachable from the two opposing long edges.
 - Add golden boundary fixtures for contact, ranges, arcs, obstruction, and
   leaving the play area.
 
-Exit: the UI can select two bases and explain their range, arc, overlap, and
-obstruction results from the same geometry used by tests.
+Exit: either seated player can use the table to select two bases and understand
+their range, arc, overlap, and obstruction results from the same geometry used
+by tests. No phone is required for this public interaction.
 
 ### M2 — Immutable rooms and fixed setup
 
 - Add Firebase configuration, anonymous authentication, local emulators, and
   Firestore Security Rules.
-- Create and join private rooms with an immutable versioned event stream.
+- Create a private room from the table, pair two seat phones with scoped tokens,
+  and record seat claims in the immutable versioned event stream.
 - Implement idempotent append, live subscription, cache prefix, reconnect,
   conflict diagnostics, and reducer replay.
-- Commit the fixed teaching scenario and alternate legal obstacle/ship setup.
+- Commit the fixed teaching scenario and alternate legal obstacle/ship setup
+  using only the shared table.
 
-Exit: two ordinary browsers create a room, complete legal fixed setup, reload,
-and reproduce the identical canonical board.
+Exit: one table and two isolated seat phones create a room, complete legal fixed
+setup on the table, reload, and reproduce the identical canonical board. The
+phones expose connection status but no setup controls.
 
 ### M3 — Private Planning and activation
 
 - Commit reviewed ship and maneuver-dial manifests for the fixed squads.
-- Assign and revise each dial privately, expose opponent readiness only, and
-  close a simultaneous commitment barrier.
+- Assign, revise, and commit each dial only on its owning phone; expose readiness
+  without the maneuver value and close a simultaneous commitment barrier.
+- Reveal dials, execute maneuvers, and make all public action and ability
+  choices on the shared table, nearest the currently authorized seat.
 - Resolve initiative and player-order ties.
 - Execute straight, bank, turn, and Koiogran maneuvers with exact templates.
 - Resolve stress, difficulty, partial maneuvers, ship overlaps, obstacle
   effects, and action eligibility.
 - Implement the fixed squads' focus, evade, lock, and barrel-roll actions.
 
-Exit: both browsers complete Planning and Activation with matching positions,
-tokens, explanations, and replay.
+Exit: both phones complete private Planning; the table completes public reveal
+and Activation with matching positions, tokens, explanations, and replay. No
+public action is required or duplicated on a phone.
 
 ### M4 — Engagement, damage, and victory
 
@@ -253,21 +352,30 @@ tokens, explanations, and replay.
   execute critical effects, and repair where allowed.
 - Resolve initiative-matched simultaneous fire, destruction, fleeing, end
   cleanup, win, loss, and draw.
+- Keep weapon, target, dice, modification, damage, repair, and timing-window
+  controls on the table, oriented toward the authorized player.
 
 Exit: an attack is explainable step by step and replays to the same dice,
-damage instances, and winner in both browsers.
+damage instances, and winner on the table and both seat projections.
 
 ### M5 — Complete teaching duel
 
 - Exercise every enabled ship, pilot, maneuver, action, obstacle, damage, and
   end condition through a production-size event history.
 - Finish reconnect, replay navigation, conflict, and incompatible-version UX.
-- Verify phone portrait/landscape, tablet, desktop, keyboard, touch, screen
-  reader announcements, reduced motion, high contrast, and zoom.
+- Verify the 3840x2160 tabletop from both seated orientations and at all four
+  viewing rotations, plus the 2560x1440 development fallback.
+- Verify two 393x852 private-planning phones, reach from opposing edges,
+  keyboard and multi-touch input, screen-reader announcements, reduced motion,
+  high contrast, 200% zoom, and non-color ownership cues.
+- Verify a phone can disconnect after commitment without blocking any public
+  table action, and that reconnect never exposes the other seat's private view.
 - Review every source-data gate and generated walkthrough.
 
-Exit: two players can complete the fixed duel without physical bookkeeping or
-manual correction, and the verifier proves the result from a clean clone.
+Exit: two players seated opposite each other can complete the fixed duel on one
+landscape 4K table, touching their phones only for hidden Planning choices,
+without physical bookkeeping or manual correction. The verifier proves the
+result from a clean clone.
 
 ### M6+ — Explicitly versioned expansion
 
@@ -304,4 +412,6 @@ The first product milestone is complete only when scenarios 001–013 in
 [E2E_GUIDE.md](E2E_GUIDE.md) pass against reviewed manifests and the normal
 client path. At that point every canonical outcome is reconstructable from the
 immutable stream, every spatial ruling comes from deterministic geometry, and
-both players receive an accessible explanation without hidden manual state.
+both players receive an accessible explanation on the shared table without
+hidden manual state. Each phone contains only its seat's private projection and
+the minimal controls needed to submit that information.

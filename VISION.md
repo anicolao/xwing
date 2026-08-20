@@ -3,9 +3,10 @@
 ## Objective
 
 Build a faithful, understandable browser version of Fantasy Flight Games'
-*Star Wars: X-Wing Second Edition* in which two people can plan in secret,
-commit to maneuvers, and resolve a complete tactical dogfight without needing
-the physical templates, tokens, dice, or damage deck.
+*Star Wars: X-Wing Second Edition* for two people seated opposite each other at
+one landscape 4K tabletop display. Players plan hidden maneuvers on their own
+phones, then resolve the public game together on the table without needing the
+physical templates, tokens, dice, or damage deck.
 
 The product should preserve the source game's central tension: maneuver choices
 are private, movement is spatial and committal, initiative changes who must
@@ -23,14 +24,29 @@ manifests.
 ### Flying is the interface
 
 The play area is the primary surface. A player should be able to inspect a
-ship, choose its dial, preview only the information the physical rules permit,
-resolve its maneuver, and choose an action without translating the board into
-a separate control panel.
+ship, resolve its maneuver, and choose public actions directly on the shared
+table without translating the board into a separate control panel or reaching
+for a phone. A phone is used only when a choice must be hidden from the player
+across the table.
 
 Movement previews must clearly distinguish a hypothetical path from a
 committed maneuver. They may teach template placement and collisions, but they
 must not reveal hidden enemy dials or promise a final position whose legality
 depends on unresolved earlier ships.
+
+### The table belongs to both players
+
+The shared table is the authoritative public interface, not a passive display.
+Room setup, placement, reveals, movement, actions, attacks, dice, damage,
+timing choices, explanations, and results all happen there. Phones are
+seat-specific hands for private information, not general-purpose controllers.
+
+The battlefield has one canonical orientation, but its presentation must work
+from any edge. With players seated on opposing long edges, each receives
+near-edge controls and readable text; the far edge is rotated 180 degrees.
+Central information is orientation-neutral or repeated toward both seats. A
+quarter-turn viewing rotation may change presentation but never coordinates,
+arcs, ranges, templates, collision results, or event history.
 
 ### Geometry is rules state
 
@@ -73,8 +89,10 @@ motion, touch targets are at least 44 CSS pixels, and screen readers receive
 concise phase and turn announcements.
 
 Zoom, high contrast, and non-color status patterns must not change canonical
-geometry. On small screens the battlefield may pan and zoom while current ship
-controls remain reachable without covering the position being judged.
+geometry. On the shared table the battlefield may pan and zoom while edge
+controls remain reachable from either seat without covering the position being
+judged. The phone view stays focused on its rare private choice and does not
+shrink the public battlefield into a handset layout.
 
 ### Original presentation, reviewed source data
 
@@ -95,24 +113,25 @@ duel on a 3-by-3-foot-equivalent play area. It includes only the ships, dials,
 actions, obstacles, dice, damage behavior, and abilities needed by that fixed
 scenario.
 
-It is complete only when two real browsers can:
+It is complete only when one shared-table browser and two isolated seat-phone
+browsers can:
 
-1. create and join a private room;
+1. create a private room on the table and pair one phone to each seat;
 2. claim opposite seats and reach a fixed setup;
-3. place the required obstacles and ships legally;
-4. choose every maneuver privately and commit Planning;
-5. resolve System, Activation, Engagement, and End phases in order;
+3. place the required obstacles and ships legally on the table;
+4. choose every maneuver privately on its owning phone and commit Planning;
+5. resolve System, Activation, Engagement, and End phases on the table;
 6. execute templates, overlaps, actions, arcs, ranges, attacks, dice
    modifications, shields, damage, destruction, and fleeing;
 7. finish with an unambiguous winner or draw;
 8. disconnect, reconnect, and reproduce the same state from the immutable
    event stream; and
-9. pass semantic, geometry, reducer, Firestore Rules, two-browser, screenshot,
-   accessibility, and production-build checks.
+9. pass semantic, geometry, reducer, Firestore Rules, three-surface,
+   screenshot, accessibility, and production-build checks.
 
 No mock-state board or rules-only simulator counts as this slice. A gameplay
-commit starts with a user action in a browser and ends with a visible result in
-both browsers.
+commit starts with an action on the surface that owns it and ends with a visible
+result on the table and each permitted seat projection.
 
 ## Scope sequence
 
@@ -120,16 +139,20 @@ both browsers.
 
 - Documentation, original art, edition boundary, and rules summary.
 - SvelteKit/Bun/Nix project scaffold and a single verification command.
-- Static deployment and accessible application shell.
+- Static deployment and distinct shared-table and private-hand application
+  shells.
+- A 3840x2160 landscape table layout, two opposing seat zones, quarter-turn
+  display rotation, and pairing for two 393x852 phones.
 - Versioned fixed-point geometry library with visual golden fixtures.
 - Firebase emulator harness, authentication, room membership, and immutable
   event schema.
 
 ### Milestone 1: fixed teaching duel
 
-- Fixed squads and deterministic setup.
-- Private dials and simultaneous phase commitment.
-- Core maneuvers, actions, attacks, dice, damage, obstacles, and victory.
+- Fixed squads and deterministic setup on the shared table.
+- Private dials and simultaneous phase commitment on seat phones.
+- Core maneuvers, actions, attacks, dice, damage, obstacles, and victory on the
+  shared table.
 - Reconnect, replay, conflict diagnostics, and complete E2E walkthrough.
 
 ### Milestone 2: squad configuration
@@ -153,7 +176,6 @@ both browsers.
 - Environment cards and nonstandard play areas.
 - AMG scenario play, current squad construction, current points, ban lists,
   errata, and tournament regulations as a separate ruleset.
-- Shared tabletop display with seat-specific phone controllers.
 - Spectators, asynchronous analysis, bots, and cryptographically hidden or
   server-authoritative play.
 
@@ -171,6 +193,13 @@ Canonical state is a pure projection of the ordered stream. Invalid, stale,
 duplicate, unauthorized, or incompatible events produce diagnostics and never
 partially mutate state. Animation frames, sound, hover previews, and camera
 position are derived presentation rather than events.
+
+The room has one table-controller identity and two seat identities. The table
+may submit setup and public choices for the seat named by the current timing
+window; each phone may submit private Planning choices only for its own seat.
+Pure selectors derive one public table projection and two seat-private phone
+projections. Display rotation and seat-edge placement are absent from canonical
+state and cannot affect reducer authorization or geometry.
 
 Every random outcome uses committed, versioned inputs: player order when
 required, obstacle selection when randomized, attack and defense dice, damage
@@ -222,7 +251,8 @@ slice of:
 - pure geometry and rules tests for edge cases;
 - immutable-stream and Firestore Rules coverage;
 - accessible controls and explanations;
-- a real two-browser Playwright scenario through Firebase emulators;
+- a real shared-table-and-two-phone Playwright scenario through Firebase
+  emulators;
 - semantic assertions, deterministic screenshots, and a generated
   walkthrough; and
 - documentation updates for any changed rule, protocol, source, or invariant.
@@ -233,9 +263,10 @@ Repository hooks and CI use the same command.
 
 ## Success criteria
 
-The project succeeds when two players can finish a match without consulting
-the implementation to discover hidden state, without manually correcting
-geometry or bookkeeping, and without the clients disagreeing after a reload.
+The project succeeds when two players seated opposite each other can finish a
+match on one 4K landscape table, using their phones only for private choices,
+without manually correcting geometry or bookkeeping and without any surface
+disagreeing after a reload.
 
 For maintainers, every outcome must be reproducible from a small fixture and
 explainable from versioned source data. For players, the interface should make

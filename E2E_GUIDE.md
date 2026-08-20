@@ -29,14 +29,14 @@ will wrap Playwright in Firebase Authentication and Firestore emulators.
 A gameplay scenario starts with a user action and ends with a visible result:
 
 ```text
-browser interaction
+interaction on its owning surface
   -> Svelte component
   -> production event creation
   -> Firestore emulator
   -> event subscription and deterministic reducer
   -> geometry/rules projection
-  -> player-specific selector
-  -> accessible rendering in both browsers
+  -> public-table or seat-private selector
+  -> accessible rendering on the table and permitted phone projections
 ```
 
 Do not inject reducer state into the page, call reducers from a spec, append
@@ -44,8 +44,10 @@ handwritten result events, mock repositories, or add test-only controls. A
 helper may remove repetitive clicks, but it must operate through accessible
 roles, labels, stable test IDs, and public application behavior.
 
-Private-information scenarios must assert both sides: an owner sees the value
-while the opponent sees only the allowed readiness or hidden-state indicator.
+Private-information scenarios must assert all three surfaces: an owner sees the
+value on their phone, the opposing phone does not, and the table shows only the
+allowed readiness or hidden-state indicator. Public scenarios interact through
+the table and assert that neither phone exposes a duplicate gameplay control.
 The first architecture provides UI secrecy, not cryptographic secrecy, so E2E
 tests must not describe Firestore as a secure hidden-information store.
 
@@ -67,10 +69,12 @@ tests/e2e/
 
 The scenario README is generated from the spec's title, purpose, steps,
 verification labels, and screenshots. It must embed and directly link every
-checked-in phone and desktop baseline for both the macOS development and Linux
-CI renderers. Commit reviewed walkthroughs and baselines with the feature. Do
-not combine unrelated rules to avoid adding a scenario, or split a vertical
-feature into backend-only and frontend-only E2E tests.
+checked-in baseline for every surface exercised, for both the macOS development
+and Linux CI renderers. Scenario 001 retains its phone and desktop shell
+baselines; gameplay scenarios use table and, when private state is involved,
+seat-phone baselines. Commit reviewed walkthroughs and baselines with the
+feature. Do not combine unrelated rules to avoid adding a scenario, or split a
+vertical feature into backend-only and frontend-only E2E tests.
 
 ## Required structure
 
@@ -81,7 +85,8 @@ Each scenario must:
 3. interact through roles, labels, and stable test IDs;
 4. verify semantic behavior before capturing a screenshot;
 5. wait on application status rather than arbitrary sleeps;
-6. assert owner and observer views for private or multiplayer state;
+6. assert table, owner-phone, and opponent-phone projections for private or
+   multiplayer state;
 7. prove the relevant production base path or replay boundary;
 8. fail on browser console errors, uncaught exceptions, missing assets, or
    unintended page overflow;
@@ -96,16 +101,24 @@ device scale, viewport, and rendering flags are fixed in
 
 ## Browser contexts and viewports
 
-- `phone`: 393×852 for every scenario.
-- `desktop`: 1280×1000 for every scenario.
-- `mobile-landscape`: 852×393 for the complete responsive scenario.
-- `tablet`: 820×1180 for the complete responsive scenario.
-- Two or more isolated browser contexts represent different players. Never
-  switch identity by changing local storage inside one context.
+- `table-4k`: 3840×2160 at device scale factor 1 is required for every gameplay
+  scenario. It represents the one public display between the players.
+- `table-development`: 2560×1440 proves the supported development fallback in
+  the complete-surface scenario.
+- `seat-a-phone` and `seat-b-phone`: isolated 393×852 contexts are present in
+  every multiplayer scenario starting with 002. Outside private Planning they
+  contain only seat, connection, and waiting status—no public game controls.
+- `phone-shell` at 393×852 and `desktop-shell` at 1280×1000 remain only for the
+  implemented scenario 001 foundation test.
+- The table and both phones use separate browser contexts. Never switch role or
+  identity by changing local storage inside one context.
 
-The complete responsive scenario also checks 200% zoom, reduced motion,
-keyboard-only play, touch-size controls, non-color state, focus management,
-live announcements, and board pan/zoom without changing canonical geometry.
+The complete-surface scenario checks both players' 0/180-degree reading
+orientations, table viewing rotations of 0, 90, 180, and 270 degrees, 200%
+zoom, reduced motion, keyboard-only play, multi-touch-sized controls, non-color
+state, focus management, live announcements, and board pan/zoom without
+changing canonical geometry. Phone checks cover private Planning only; a
+responsive phone version of the public battlefield is not an MVP requirement.
 
 ## Required scenarios
 
@@ -122,81 +135,100 @@ it complete.
 - Assert no missing-resource or uncaught browser errors.
 - Build separately with `/xwing/pr1` and prove asset URLs honor the nested base
   path.
+- Treat these viewports as foundation-shell coverage only; this scenario does
+  not establish the MVP gameplay surface contract.
 
 ### 002 — Create, join, and replay a room
 
-- Two anonymous browser contexts create and join one private room.
-- Both clients see stable seats, ruleset/manifests, readiness, and opponent
-  identity through the real Firebase emulators.
+- The table creates one private room and displays distinct, short-lived pairing
+  codes for the two opposing seats.
+- Two anonymous phone contexts pair to one seat each; the table shows stable
+  seats, ruleset/manifests, readiness, and connection state through the real
+  Firebase emulators.
+- A code cannot claim both seats, a claimed seat cannot be stolen, and explicit
+  re-pairing invalidates the old seat session.
 - Duplicate append is idempotent; reload replays the same immutable prefix.
 - A nonmember cannot read or append, and neither member can mutate or delete an
   accepted event.
 
 ### 003 — Fixed setup and legal placement
 
-- The host selects the fixed teaching duel and both players ready.
-- Players alternate placing all six obstacles with range-to-edge and
-  range-to-obstacle constraints visibly explained.
+- The fixed teaching duel is selected and both players ready on the table.
+- Players alternate placing all six obstacles on the table with range-to-edge
+  and range-to-obstacle constraints visibly explained at the active seat edge.
 - Ships deploy in initiative/player order inside the correct setup areas.
 - Illegal overlap, range, rotation, and out-of-area attempts are refused with
-  semantic explanations; both clients finish on identical canonical poses.
+  semantic explanations; the table finishes on the canonical poses.
+- Both phones show seat and connection status, with no setup or placement
+  controls.
 
 ### 004 — Private maneuver planning
 
-- Each owner opens every required dial, selects and revises a legal maneuver,
-  and commits Planning.
-- The opponent sees assignment/commitment state but never selected bearings,
-  speeds, or difficulties before reveal.
+- Each owner opens every required dial on their phone, selects and revises a
+  legal maneuver, and commits Planning there.
+- The opposing phone and table see assignment/commitment state but never
+  selected bearings, speeds, or difficulties before reveal.
 - One commitment cannot close the barrier; both commitments advance exactly
   once and freeze the selected maneuvers.
-- Reload before and after the barrier preserves the appropriate owner and
-  opponent views.
+- Reload before and after the barrier preserves the appropriate table, owner,
+  and opponent projections.
+- The table contains no dial-selection control and neither phone can inspect or
+  operate the other seat's dials.
 
 ### 005 — Activation order and maneuver geometry
 
 - Ships activate by ascending initiative with deterministic player-order ties.
-- A browser reveals its dial, places the correct template at the front guides,
-  moves along it, and lands at the exact transformed pose.
+- The authorized player reveals each dial on the table, which places the
+  correct template at the front guides, moves along it, and lands at the exact
+  transformed pose.
 - Straight, bank, turn, and Koiogran examples show speed/difficulty and final
   orientation, including stress consequences.
-- Observer and owner see the same staged playback and final geometry.
+- Both seated orientations show the same staged playback and final geometry;
+  phones show waiting state without reveal or movement controls.
 
 Pure geometry fixtures exhaust every enabled maneuver at cardinal and awkward
 angles; browser coverage proves representative user-visible paths.
 
 ### 006 — Overlaps, obstacles, stress, and actions
 
-- A maneuver that would overlap another ship backs up to the furthest legal
-  position and skips its action with an explanation.
+- On the table, a maneuver that would overlap another ship backs up to the
+  furthest legal position and skips its action with an explanation.
 - Asteroid and debris intersections use semantic masks, not texture pixels,
   and resolve the correct effects.
 - Stress prevents red maneuvers/actions where required and clears on a blue
   maneuver.
 - Focus, evade, lock, and barrel roll expose only legal choices, produce the
-  correct tokens/pose, and are visible to the opponent.
+  correct tokens/pose, and are visible to both players on the table.
+- Action controls appear at the authorized player's edge; both phones remain
+  read-only connection/waiting surfaces.
 
 ### 007 — Targets, arcs, range, and obstruction
 
-- The attacker inspects candidate targets and sees legal/illegal reasons.
+- The attacker inspects candidate targets on the table and sees legal/illegal
+  reasons from their seated orientation.
 - Front arc, bullseye, range-band boundaries, closest-point measurement, and
   obstacle obstruction use canonical geometry.
 - Weapon range and attack-die effects are reflected in the declared attack.
+- Target and weapon controls exist only on the table and cannot be invoked from
+  either phone.
 - Arc-edge contact, range 0, exact range boundaries, multiple obstacles, and
   touching polygons are exhaustive pure fixtures.
 
 ### 008 — Attack and defense dice
 
 - The active ship declares one legal weapon/target and rolls from a committed
-  seed.
+  seed using the table.
 - Attacker and defender modification windows occur in rules order with legal
   focus, evade, and lock choices and explicit pass controls.
 - Rerolls preserve prohibited-reroll state, results neutralize in the correct
-  order, and both clients show identical pools and spent tokens.
+  order, and both seated table orientations show identical pools and spent
+  tokens.
 - Reduced motion skips animation without skipping timing windows or results.
 
 ### 009 — Shields, damage, and critical effects
 
-- Uncancelled hits remove shields before dealing damage-card instances.
+- On the table, uncancelled hits remove shields before dealing damage-card
+  instances.
 - Critical results deal faceup cards at the correct time and their enabled
   persistent effects alter later legal choices or values.
 - Repair/flip/discard actions use stable card IDs and exact allowed timing.
@@ -209,14 +241,18 @@ angles; browser coverage proves representative user-visible paths.
 - A base leaving the play area flees based on semantic geometry.
 - Initiative-matched ships complete simultaneous-fire behavior where the
   rules permit it.
-- End phase produces win, loss, or simultaneous-destruction draw, freezes
-  gameplay controls, and offers replay/rematch without changing the old epoch.
+- End phase produces win, loss, or simultaneous-destruction draw on the table,
+  freezes gameplay controls, and offers replay/rematch without changing the
+  old epoch.
 
 ### 011 — Reconnect, replay, conflicts, and versioning
 
-- Disconnect during Planning, Activation playback, and a dice choice; reconnect
-  from cached prefix/cursor and catch up without duplicated effects.
-- Reload at every major phase projects the same canonical state immediately.
+- Disconnect each phone during Planning and the table during Activation
+  playback and a dice choice; reconnect from cached prefix/cursor and catch up
+  without duplicated effects.
+- A phone that disconnects after committing cannot block public table play.
+- Reload every surface at every major phase and project the same canonical
+  state with the correct public/private visibility immediately.
 - Stale, duplicate, unauthorized, and incompatible events yield stable
   diagnostics and never partially mutate state.
 - Replay can step through decisions and derived resolution while exposing the
@@ -224,21 +260,30 @@ angles; browser coverage proves representative user-visible paths.
 
 ### 012 — Complete fixed teaching duel
 
-- Two ordinary clients play a production-size duel from room creation through
-  setup, multiple rounds, damage, destruction, final summary, and rematch.
+- One 4K table and two seat phones play a production-size duel from room
+  creation through setup, multiple rounds, damage, destruction, final summary,
+  and rematch.
+- Every public action occurs on the table; each phone is touched only to pair
+  and to make its seat's hidden maneuver choices.
 - The history exercises every ship, maneuver family, action, token, obstacle,
   attack step, and end condition enabled in the fixed scenario.
-- A golden event-log oracle and both rendered clients agree at every round
-  boundary; no direct state setup shortcuts are allowed.
+- A golden event-log oracle and all three rendered surfaces agree at every
+  round boundary; no direct state setup shortcuts are allowed.
 
-### 013 — Responsive and accessible complete duel
+### 013 — Tabletop orientation and accessible complete duel
 
-- Repeat the complete story at phone portrait/landscape, tablet, and desktop.
-- Complete the game using keyboard controls and repeat spatial interactions
-  with pointer/touch behavior.
-- Verify focus placement, readable labels, phase/live announcements, 44px
-  targets, non-color state, high contrast, 200% zoom, reduced motion, and no
-  inaccessible or obscured controls.
+- Repeat the complete story at 3840x2160 with players at opposing long edges;
+  repeat representative public interactions at the 2560x1440 fallback.
+- Verify near- and far-edge controls are readable at 0/180 degrees and rotate
+  the table presentation through 0, 90, 180, and 270 degrees without changing
+  canonical positions or rulings.
+- Complete public play using keyboard controls and repeat spatial interactions
+  with pointer and multi-touch behavior from each seat edge.
+- Verify focus placement, readable labels, phase/live announcements, generous
+  touch targets, non-color ownership, high contrast, 200% zoom, reduced motion,
+  reachability, and no inaccessible or obscured controls.
+- Verify the 393x852 phone flow remains usable for private Planning and exposes
+  no public gameplay controls.
 - Pan and zoom the board without altering any measured range, arc, overlap, or
   final pose.
 
@@ -246,9 +291,9 @@ angles; browser coverage proves representative user-visible paths.
 
 New numbered scenarios are required for squad construction, every reviewed
 content batch, medium/large bases, turrets, devices/remotes, docking, Force and
-charges, alternate scenarios, Epic play, tabletop controllers, spectators,
-bots, and each separately versioned AMG format. “All cards” or “all ships”
-coverage is valid only against an explicit reviewed manifest.
+charges, alternate scenarios, Epic play, spectators, bots, alternative private
+companion devices, and each separately versioned AMG format. “All cards” or
+“all ships” coverage is valid only against an explicit reviewed manifest.
 
 ## Pure-test boundary
 
