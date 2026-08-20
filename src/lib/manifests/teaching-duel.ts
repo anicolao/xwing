@@ -11,6 +11,7 @@ export interface ShipManifest {
   id: string; seat: Seat; name: string; chassis: 't65-x-wing' | 'tie-ln-fighter'; initiative: number;
   attack: number; agility: number; hull: number; shields: number; force?: number; actions: Action[]; dial: Maneuver[]; asset: string;
 }
+export interface SetupPlacement { id: string; seat: Seat; kind: 'obstacle' | 'ship'; asset: string; x: number; y: number }
 
 const maneuver = (speed: Maneuver['speed'], bearing: Bearing, difficulty: Difficulty): Maneuver => ({ id: `${speed}-${bearing}`, speed, bearing, difficulty });
 const xWingDial: Maneuver[] = [
@@ -55,4 +56,10 @@ export const teachingDuel = {
     { id: 'debris-03', type: 'debris', x: 71_323, y: 53_035, radius: 4_700 }
   ]
 } as const;
+export const setupOrder: SetupPlacement[] = [
+  ...teachingDuel.obstacleGeometry.map((obstacle, index) => ({ id: obstacle.id, seat: index % 2 === 0 ? 'rebel' as const : 'imperial' as const, kind: 'obstacle' as const, asset: teachingDuel.obstacleAssets[index]!, x: obstacle.x, y: obstacle.y })),
+  { id: 'onyx-one', seat: 'imperial', kind: 'ship', asset: ships[1]!.asset, x: 36_000, y: 11_440 },
+  { id: 'onyx-two', seat: 'imperial', kind: 'ship', asset: ships[2]!.asset, x: 55_440, y: 11_440 },
+  { id: 'red-five', seat: 'rebel', kind: 'ship', asset: ships[0]!.asset, x: 45_720, y: 80_000 }
+];
 export const shipById = (id: string) => ships.find((ship) => ship.id === id);

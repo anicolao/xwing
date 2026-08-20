@@ -26,15 +26,24 @@ test('two seats plan privately and resolve a public attack on the shared table',
   await imperial.goto('/hand?room=FLIGHT7&seat=imperial&code=ONYX-2');
   await rebel.getByRole('button', { name: 'Claim Rebel seat' }).click();
   await imperial.getByRole('button', { name: 'Claim Imperial seat' }).click();
-  await page.getByRole('button', { name: 'Ready Rebel squad' }).click();
-  await page.getByRole('button', { name: 'Ready Imperial squad' }).click();
-  await page.getByRole('button', { name: 'Lock setup on table' }).click();
-
   const surfaces = [
     { id: 'table-4k', label: 'Shared 4K tabletop', page },
     { id: 'rebel-phone', label: 'Rebel private hand', page: rebel },
     { id: 'imperial-phone', label: 'Imperial private hand', page: imperial }
   ];
+  await page.getByRole('button', { name: 'Ready Rebel squad' }).click();
+  await page.getByRole('button', { name: 'Ready Imperial squad' }).click();
+  for (let placement = 0; placement < 6; placement += 1) await page.locator('button.placement').click();
+  await steps.step('fixed-setup', {
+    description: 'Players place the reviewed setup directly on the shared battlefield',
+    surfaces,
+    verifications: [
+      { spec: 'Six production obstacles are visibly placed at their canonical positions', check: async () => { await expect(page.locator('.battlefield > img.obstacle')).toHaveCount(6); await expect(page.locator('.phase')).toHaveText('setup'); } },
+      { spec: 'The next legal ship position is a direct tabletop target for the correct seat', check: async () => await expect(page.getByRole('button', { name: 'Place Onyx One for imperial' })).toBeVisible() },
+      { spec: 'Both private phones remain control-free during public setup', check: async () => { for (const hand of [rebel, imperial]) { await expect(hand.getByRole('heading', { name: 'Eyes on the table' })).toBeVisible(); await expect(hand.getByRole('button')).toHaveCount(0); } } }
+    ]
+  });
+  for (let placement = 0; placement < 3; placement += 1) await page.locator('button.placement').click();
   await steps.step('private-planning-ready', {
     description: 'Private planning is ready on the owning phones',
     surfaces,

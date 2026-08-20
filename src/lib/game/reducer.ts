@@ -1,5 +1,5 @@
 import { containsPose, distance, executeManeuver, isInFrontArc, overlaps, rangeBetween, rollbackOverlap, segmentIntersectsCircle } from '$lib/geometry';
-import { shipById, ships, teachingDuel, type Seat } from '$lib/manifests/teaching-duel';
+import { setupOrder, shipById, ships, teachingDuel, type Seat } from '$lib/manifests/teaching-duel';
 import type { Diagnostic, GameEvent, GameState, ShipState } from './model';
 import { rollAttack, rollDefense } from './prng';
 import { createDamageDeck, damageDefinition } from '$lib/manifests/damage-deck';
@@ -13,7 +13,7 @@ const initialShip = (id: string): ShipState => {
 export const createInitialState = (gameId = 'uncreated', seed = 0x5857494e): GameState => ({
   gameId, revision: 0, phase: 'lobby', round: 0, seed,
   seats: { rebel: { joined: false, ready: false, committed: false }, imperial: { joined: false, ready: false, committed: false } },
-  ships: Object.fromEntries(ships.map((ship) => [ship.id, initialShip(ship.id)])), damageDeck: createDamageDeck(seed), damageCursor: 0, pending: null, log: []
+  setupPlaced: [], ships: Object.fromEntries(ships.map((ship) => [ship.id, initialShip(ship.id)])), damageDeck: createDamageDeck(seed), damageCursor: 0, pending: null, log: []
 });
 
 const activationOrder = (state: GameState) => ships.filter((ship) => !state.ships[ship.id]!.activated && !state.ships[ship.id]!.destroyed).sort((a, b) => a.initiative - b.initiative || a.id.localeCompare(b.id));
@@ -75,7 +75,14 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       break;
     case 'setup/completed':
       if (event.actor !== 'table' || state.phase !== 'setup') return reject('Setup is not waiting on the table.');
-      state.phase = 'planning'; state.round = 1; state.pending = null; state.log.push('All ships entered the play area. Planning began.'); break;
+      state.setupPlaced = setupOrder.map((piece) => piece.id); state.phase = 'planning'; state.round = 1; state.pending = null; state.log.push('All ships entered the play area. Planning began.'); break;
+    case 'setup/placed': {
+      const expected = setupOrder[state.setupPlaced.length];
+      if (event.actor !== 'table' || state.phase !== 'setup' || !expected || event.payload.pieceId !== expected.id) return reject('Place the highlighted setup piece next.');
+      state.setupPlaced.push(expected.id); state.log.push(`${expected.seat === 'rebel' ? 'Rebel' : 'Imperial'} placed ${expected.kind === 'ship' ? shipById(expected.id)!.name : `obstacle ${state.setupPlaced.length}`}.`);
+      if (state.setupPlaced.length === setupOrder.length) { state.phase = 'planning'; state.round = 1; state.pending = null; state.log.push('Setup complete. Planning began.'); }
+      break;
+    }
     case 'planning/assigned': {
       const ship = state.ships[event.payload.shipId]; const selected = shipById(event.payload.shipId)?.dial.find((item) => item.id === event.payload.maneuverId);
       if (state.phase !== 'planning' || !ship || event.actor !== ship.seat || state.seats[ship.seat].committed || !selected) return reject('That private maneuver cannot be assigned now.');

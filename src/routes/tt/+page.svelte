@@ -7,7 +7,7 @@
   import { publicProjection } from '$lib/game/selectors';
   import { replay } from '$lib/game/reducer';
   import type { GameState } from '$lib/game/model';
-  import { shipById, teachingDuel, type Action, type Seat } from '$lib/manifests/teaching-duel';
+  import { setupOrder, shipById, teachingDuel, type Action, type Seat } from '$lib/manifests/teaching-duel';
   import { appendEvent, createRoom, pairingCode, ROOM_ID, subscribeToRoom } from '$lib/repository/local-game';
 
   let game: GameState = $state(publicProjection(replay([]).state));
@@ -33,7 +33,7 @@
 
   function openRoom() { perform(() => createRoom(), 'Room FLIGHT7 opened. Pair each phone to its own seat.'); }
   function readySeat(seat: Seat) { perform(() => appendEvent({ type: 'player/ready', actor: 'table', payload: { seat } }), `${seat === 'rebel' ? 'Rebel' : 'Imperial'} squad ready.`); }
-  function completeSetup() { perform(() => appendEvent({ type: 'setup/completed', actor: 'table', payload: {} }), 'Setup locked. Choose maneuvers privately on the phones.'); }
+  function placeSetupPiece(pieceId: string) { perform(() => appendEvent({ type: 'setup/placed', actor: 'table', payload: { pieceId } }), 'Placement accepted on the shared table.'); }
   function reveal(shipId: string) { perform(() => appendEvent({ type: 'activation/revealed', actor: 'table', payload: { shipId } }), `${shipById(shipId)!.name} flew its revealed maneuver.`); }
   function act(shipId: string, action: Action | 'pass') {
     const enemy = Object.values(game.ships).find((ship) => ship.seat !== game.ships[shipId]!.seat && !ship.destroyed);
@@ -55,6 +55,7 @@
 
   const activeShip = $derived(game.activeShipId ? game.ships[game.activeShipId] : undefined);
   const activeManifest = $derived(activeShip ? shipById(activeShip.id) : undefined);
+  const nextPlacement = $derived(setupOrder[game.setupPlaced.length]);
 </script>
 
 <svelte:head><title>X-Wing shared tabletop</title></svelte:head>
@@ -85,17 +86,22 @@
 
   <section class="battlefield" aria-label="Three foot square play area" style={`transform:rotate(var(--view-rotation))`}>
     <div class="grid" aria-hidden="true"></div>
-    {#each teachingDuel.obstacleAssets as obstacle, index}
-      <img class="obstacle" style={`--ox:${[20,43,69,29,58,78][index]}%;--oy:${[29,19,35,64,75,58][index]}%;--or:${index * 31}deg`} src={`${assets}/assets/${obstacle}`} alt={`Obstacle ${index + 1}`} />
+    {#each setupOrder.filter((piece) => piece.kind === 'obstacle') as obstacle, index}
+      {#if game.setupPlaced.includes(obstacle.id) || !['lobby', 'setup'].includes(game.phase)}<img class="obstacle" style={`--ox:${obstacle.x / 914.4}%;--oy:${obstacle.y / 914.4}%;--or:${index * 31}deg`} src={`${assets}/assets/${obstacle.asset}`} alt={`Obstacle ${index + 1}`} />{/if}
     {/each}
     {#each Object.values(game.ships) as ship}
-      <ShipPiece
+      {#if game.setupPlaced.includes(ship.id) || !['lobby', 'setup'].includes(game.phase)}<ShipPiece
         {ship}
         active={ship.id === game.activeShipId}
         selectable={(game.phase === 'activation' && game.pending === 'reveal' && ship.id === game.activeShipId) || (game.phase === 'engagement' && game.pending === 'target' && ship.seat !== activeShip?.seat && !ship.destroyed)}
         onclick={() => game.phase === 'activation' ? reveal(ship.id) : target(ship.id)}
-      />
+      />{/if}
     {/each}
+    {#if game.phase === 'setup' && nextPlacement}
+      <button class="placement" style={`--px:${nextPlacement.x / 914.4}%;--py:${nextPlacement.y / 914.4}%`} onclick={() => placeSetupPiece(nextPlacement.id)} aria-label={`Place ${nextPlacement.kind === 'ship' ? shipById(nextPlacement.id)?.name : `obstacle ${game.setupPlaced.length + 1}`} for ${nextPlacement.seat}`}>
+        <img src={`${assets}/assets/${nextPlacement.asset}`} alt="" /><span>{nextPlacement.seat.toUpperCase()} · PLACE</span>
+      </button>
+    {/if}
     {#if game.phase === 'lobby'}
       <div class="center-message">
         <img src={`${assets}/assets/maneuver-dial-back.webp`} alt="Maneuver dial" />
@@ -104,7 +110,7 @@
         {#if game.gameId === 'uncreated'}<button class="primary" onclick={openRoom}>Create tabletop room</button>{/if}
       </div>
     {:else if game.phase === 'setup'}
-      <div class="center-message compact"><h1>FORMATIONS READY</h1><p>Six obstacles and three ships are in legal teaching positions.</p><button class="primary" onclick={completeSetup}>Lock setup on table</button></div>
+      <div class="instruction setup-instruction"><b>FIXED SETUP · {game.setupPlaced.length + 1}/9</b><span>{nextPlacement?.seat.toUpperCase()} player: touch the highlighted {nextPlacement?.kind} on the battlefield</span></div>
     {:else if game.phase === 'planning'}
       <div class="center-message compact"><h1>PLANNING</h1><p>Dials remain hidden. {game.seats.rebel.committed ? 'Rebel committed.' : 'Rebel choosing.'} {game.seats.imperial.committed ? 'Imperial committed.' : 'Imperial choosing.'}</p></div>
     {:else if game.phase === 'activation' && game.pending === 'reveal'}
@@ -180,6 +186,7 @@
   .battlefield { position:relative; grid-area:board; align-self:center; justify-self:center; width:min(100%,78vh); aspect-ratio:1; overflow:hidden; border:2px solid #7bc9d688; border-radius:4px; background:#061323; box-shadow:inset 0 0 80px #000,0 0 36px #4db6cc22; transition:transform .45s ease; }
   .grid { position:absolute; inset:0; opacity:.25; background-image:linear-gradient(#69bbca44 1px,transparent 1px),linear-gradient(90deg,#69bbca44 1px,transparent 1px); background-size:10% 10%; }
   .obstacle { position:absolute; left:var(--ox); top:var(--oy); width:11%; transform:translate(-50%,-50%) rotate(var(--or)); filter:drop-shadow(0 5px 4px #000); }
+  .placement { position:absolute; z-index:7; left:var(--px); top:var(--py); display:grid; place-items:center; width:12%; aspect-ratio:1; padding:5px; transform:translate(-50%,-50%); border:3px dashed #efbb58; border-radius:50%; background:#efbb5818; color:#fff; cursor:pointer; animation:pulse-placement 1.3s ease-in-out infinite; } .placement img { width:78%; height:78%; object-fit:contain; filter:drop-shadow(0 6px 5px #000); } .placement span { position:absolute; top:100%; min-width:max-content; padding:3px 7px; border-radius:3px; background:#07111fee; color:#efbb58; font:700 clamp(10px,.72vw,18px) 'Space Mono'; }
   .center-message { position:absolute; z-index:5; left:50%; top:50%; display:grid; justify-items:center; width:min(78%,700px); padding:clamp(18px,3vw,50px); border:1px solid #6fd4e866; border-radius:14px; transform:translate(-50%,-50%) rotate(calc(-1 * var(--view-rotation))); background:#07111fee; text-align:center; box-shadow:0 20px 70px #000; }
   .center-message img { width:clamp(84px,10vw,200px); } .center-message h1 { margin:15px 0 4px; font:700 clamp(17px,1.8vw,40px) 'Space Mono'; letter-spacing:.08em; } .center-message p { margin:8px 0 18px; color:#b7cbd2; font-size:clamp(12px,1vw,23px); } .compact { width:min(65%,560px); padding:24px; }
   .primary { min-height:54px; background:#b66c22; border-color:#efbb58; font-size:1.08em; }
@@ -191,4 +198,6 @@
   .announcement { position:absolute; z-index:10; left:50%; bottom:calc(11vh + 10px); margin:0; padding:7px 16px; transform:translateX(-50%); border-radius:30px; background:#081522dd; color:#cce7ec; font-size:clamp(12px,.8vw,18px); }
   @media (max-aspect-ratio: 4/3) { main::before { position:fixed; z-index:50; inset:0; display:grid; place-items:center; padding:30px; background:#06101a; content:'Rotate this display to landscape for the shared tabletop.'; text-align:center; font-size:1.5rem; } }
   @media (prefers-reduced-motion:reduce) { .battlefield { transition:none; } }
+  @keyframes pulse-placement { 50% { box-shadow:0 0 38px #efbb5899; } }
+  @media (prefers-reduced-motion:reduce) { .placement { animation:none; } }
 </style>

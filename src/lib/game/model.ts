@@ -6,6 +6,7 @@ export interface ShipState { id: string; seat: Seat; pose: Pose; hull: number; s
 export interface GameState {
   gameId: string; revision: number; phase: Phase; round: number; seed: number;
   seats: Record<Seat, { joined: boolean; ready: boolean; committed: boolean }>;
+  setupPlaced: string[];
   ships: Record<string, ShipState>; activeShipId?: string;
   pending: 'setup' | 'reveal' | 'action' | 'target' | 'attack' | 'damage' | 'end' | null;
   attack?: { attackerId: string; defenderId: string; range: 1 | 2 | 3; obstructed: boolean; attack: AttackFace[]; defense: DefenseFace[] };
@@ -16,6 +17,7 @@ export type GameEvent =
   | EventBase<'game/created', { gameId: string; seed: number }>
   | EventBase<'player/joined', { seat: Seat }>
   | EventBase<'player/ready', { seat: Seat }>
+  | EventBase<'setup/placed', { pieceId: string }>
   | EventBase<'setup/completed', Record<string, never>>
   | EventBase<'planning/assigned', { shipId: string; maneuverId: string }>
   | EventBase<'planning/committed', { seat: Seat }>

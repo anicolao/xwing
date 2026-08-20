@@ -63,6 +63,13 @@ describe('event reducer', () => {
     const result = applyEvent(state, event({ id: 'e13', type: 'game/conceded', actor: 'table', sequence: 13, payload: { seat: 'imperial' } }));
     expect(result.diagnostic).toBeUndefined(); expect(result.state.phase).toBe('finished'); expect(result.state.winner).toBe('rebel'); expect(result.state.pending).toBeNull();
   });
+  it('accepts fixed setup pieces only in the reviewed alternating order', () => {
+    const state = createInitialState('duel'); state.phase = 'setup'; state.revision = 4;
+    const wrong = applyEvent(state, event({ id: 'e5-wrong', type: 'setup/placed', actor: 'table', sequence: 5, payload: { pieceId: 'asteroid-02' } }));
+    expect(wrong.diagnostic?.message).toContain('highlighted');
+    const first = applyEvent(state, event({ id: 'e5', type: 'setup/placed', actor: 'table', sequence: 5, payload: { pieceId: 'asteroid-01' } }));
+    expect(first.diagnostic).toBeUndefined(); expect(first.state.setupPlaced).toEqual(['asteroid-01']); expect(first.state.phase).toBe('setup');
+  });
 });
 
 describe('standard damage deck', () => {
