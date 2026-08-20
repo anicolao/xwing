@@ -1,0 +1,9 @@
+@import '@fontsource/atkinson-hyperlegible/400.css';
+@import '@fontsource/atkinson-hyperlegible/700.css';
+@import '@fontsource/space-mono/700.css';
+:root { font-family:'Atkinson Hyperlegible',sans-serif; color:#e9f4f5; background:#030b14; color-scheme:dark; }
+* { box-sizing:border-box; }
+html, body { margin:0; min-width:320px; min-height:100%; background:#030b14; }
+button, select, input { font:inherit; }
+button { min-width:44px; min-height:44px; }
+button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible { outline:4px solid #fff; outline-offset:3px; }
