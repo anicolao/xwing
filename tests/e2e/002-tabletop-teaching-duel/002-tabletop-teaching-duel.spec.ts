@@ -82,17 +82,32 @@ test('two seats plan privately and resolve a public attack on the shared table',
         check: async () => await expect(page.getByRole('button', { name: 'Place Onyx One for imperial' })).toBeVisible()
       },
       {
-        spec: 'Seat-relative rotate, zoom, reset, and keyboard pan change presentation without changing setup geometry',
+        spec: 'Quarter-turn rotation, 200% zoom, pointer and keyboard pan, reduced motion, and the fallback viewport preserve canonical geometry',
         check: async () => {
           const piece = page.getByRole('button', { name: 'Place Onyx One for imperial' });
           const position = await piece.getAttribute('style');
           for (let turn = 0; turn < 4; turn += 1)
             await page.getByRole('button', { name: 'Rotate from Rebel edge' }).click();
-          await page.getByRole('button', { name: 'Zoom in from Rebel edge' }).click();
-          await expect(page.locator('main')).toHaveAttribute('data-view', /^0:1\.25:/);
+          for (let zoom = 0; zoom < 4; zoom += 1)
+            await page.getByRole('button', { name: 'Zoom in from Rebel edge' }).click();
+          await expect(page.locator('main')).toHaveAttribute('data-view', /^0:2:/);
           await page.keyboard.press('ArrowRight');
-          await expect(page.locator('main')).toHaveAttribute('data-view', /^0:1\.25:40:/);
+          await expect(page.locator('main')).toHaveAttribute('data-view', /^0:2:40:/);
+          const board = page.getByRole('application', { name: 'Three foot square play area' });
+          const box = (await board.boundingBox())!;
+          await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.5);
+          await page.mouse.down();
+          await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.55);
+          await page.mouse.up();
+          await expect(page.locator('main')).not.toHaveAttribute('data-view', /^0:2:40:0$/);
+          await page.emulateMedia({ reducedMotion: 'reduce' });
+          await expect(piece).toHaveCSS('animation-name', 'none');
           await page.getByRole('button', { name: 'Center view from Rebel edge' }).click();
+          await page.setViewportSize({ width: 2560, height: 1440 });
+          await expect(board).toBeInViewport();
+          await expect(page.locator('main')).toHaveJSProperty('scrollWidth', 2560);
+          await page.setViewportSize({ width: 3840, height: 2160 });
+          await page.emulateMedia({ reducedMotion: 'no-preference' });
           await expect(piece).toHaveAttribute('style', position!);
         }
       },
