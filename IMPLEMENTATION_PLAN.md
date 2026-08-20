@@ -287,11 +287,12 @@ update state.
 - [ ] Add short-lived claims and explicit unpair/re-pair.
 - [x] Add a Playwright story with one 3840x2160 table surface and two 393x852
   phone surfaces.
-- [ ] Move those phones into isolated authenticated browser contexts when the
-  Firestore adapter replaces the local same-profile repository.
+- [x] Move the E2E phones into isolated anonymous-authenticated browser
+  contexts through the Firestore adapter and local emulators.
 - [x] Add unit tests to the repository-managed verification command.
-- [ ] Add formatting and Firestore emulator harnesses to the
-  repository-managed verification command.
+- [x] Add the Firestore/Auth emulator harness to the repository-managed
+  verification command.
+- [ ] Add a formatting gate to the repository-managed verification command.
 
 Exit: a fresh clone can enter Nix, install locked dependencies, verify, build,
 and load the shared-table and private-hand routes locally and under a nested

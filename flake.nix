@@ -20,6 +20,7 @@
             bash
             bun
             git
+            jdk_headless
           ];
 
           shellHook = ''

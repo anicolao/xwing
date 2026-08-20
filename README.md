@@ -20,15 +20,17 @@ dice, damage, round and victory handling, and prefix-by-prefix replay.
 Open the [shared tabletop](https://anicolao.github.io/xwing/pr1/tt) on the
 landscape display. Create the room there, then scan the Rebel and Imperial
 pairing codes with the matching phones. The fixed preview room is stored in the
-browser, so local review should open the table and both phone hands as tabs or
-windows in the same browser profile. The checked-in E2E story does exactly
-that at 3840×2160 plus two 393×852 phone viewports.
+browser when Firebase configuration is absent, so a credentials-free preview
+can be reviewed with table and phone tabs in one browser profile.
 
-The deployed preview intentionally uses the local repository adapter because
-this repository has no Firebase project credentials. The game and UI layers
-are separated from persistence, but cross-device production pairing remains
-dependent on provisioning the planned authenticated Firestore adapter. Do not
-mistake the short pairing code in this preview for a security boundary.
+The production repository adapter now supports anonymous Authentication and
+append-only Firestore rooms. The checked-in E2E story runs the ordinary client
+against Auth and Firestore emulators in three isolated browser contexts: one
+3840×2160 table and two 393×852 phones. The deployed PR preview intentionally
+falls back to local persistence because this repository has no Firebase web
+configuration; supplying the three `PUBLIC_FIREBASE_*` values from
+[`.env.example`](.env.example) enables real cross-device transport. Pairing
+codes preserve the ordinary UI boundary but are not cryptographic secrecy.
 
 ## Project documents
 
@@ -86,11 +88,11 @@ model:
   the minimal private phone surface.
 
 The proposed multiplayer model is a trustworthy client, not a secure referee.
-Firestore Security Rules can enforce membership, attribution, and immutable
-history, but a modified client could inspect private maneuver selections or
-future randomized state. The ordinary client must preserve the physical
-game's information boundaries; cryptographic secrecy or server-authoritative
-validation is a separate future project.
+The current Firestore Security Rules require authentication and make accepted
+event documents create-only. Per-seat membership enforcement remains part of
+the server-authoritative hardening boundary; a modified authenticated client
+could inspect private maneuver selections or future randomized state. The
+ordinary client preserves the physical game's UI boundaries.
 
 The repository includes the Nix-pinned client, `/tt` shared table, `/hand`
 private companion, `/replay` event inspector, pure tests, multi-surface browser
@@ -117,6 +119,10 @@ Start the local application with:
 ```sh
 nix develop --command bun run dev
 ```
+
+Copy `.env.example` to `.env` and provide a Firebase web application's public
+configuration to exercise cross-device development. `verify:change` needs no
+cloud project: it starts the Auth and Firestore emulators automatically.
 
 ## Rules and data policy
 

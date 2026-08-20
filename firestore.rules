@@ -1,0 +1,22 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /games/{gameId} {
+      allow create: if request.auth != null && request.resource.data.revision == 0;
+      allow read: if request.auth != null;
+      allow update: if request.auth != null
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revision', 'updatedAt']);
+      allow delete: if false;
+
+      match /events/{eventId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.resource.data.id is string
+          && request.resource.data.sequence is int
+          && request.resource.data.type is string
+          && request.resource.data.actor in ['table', 'rebel', 'imperial'];
+        allow update, delete: if false;
+      }
+    }
+  }
+}

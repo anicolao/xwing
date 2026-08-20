@@ -30,8 +30,8 @@
     return unsubscribe;
   });
 
-  function perform(action: () => void, message: string) {
-    try { action(); notice = message; }
+  async function perform(action: () => void | Promise<unknown>, message: string) {
+    try { await action(); notice = message; }
     catch (error) { notice = error instanceof Error ? error.message : 'Action could not be completed.'; }
   }
 

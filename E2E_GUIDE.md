@@ -22,7 +22,7 @@ nix develop --command bun run test:e2e
 
 The application server is started automatically by Playwright. The smoke
 scenario needs no external service. Starting with scenario 002, the E2E command
-will wrap Playwright in Firebase Authentication and Firestore emulators.
+wraps Playwright in Firebase Authentication and Firestore emulators.
 
 ## What a gameplay scenario proves
 

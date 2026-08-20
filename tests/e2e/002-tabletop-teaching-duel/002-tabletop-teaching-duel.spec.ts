@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
-test('two seats plan privately and resolve a public attack on the shared table', async ({ page, context }, testInfo) => {
+test('two seats plan privately and resolve a public attack on the shared table', async ({ page, browser }, testInfo) => {
   test.skip(testInfo.project.name !== 'desktop', 'The story creates its own table and phone surfaces.');
   const errors: string[] = [];
   const watch = (surface: string, target: Page) => {
@@ -11,8 +11,8 @@ test('two seats plan privately and resolve a public attack on the shared table',
   };
 
   await page.setViewportSize({ width: 3840, height: 2160 });
-  const rebel = await context.newPage(); await rebel.setViewportSize({ width: 393, height: 852 });
-  const imperial = await context.newPage(); await imperial.setViewportSize({ width: 393, height: 852 });
+  const rebelContext = await browser.newContext({ viewport: { width: 393, height: 852 } }); const rebel = await rebelContext.newPage();
+  const imperialContext = await browser.newContext({ viewport: { width: 393, height: 852 } }); const imperial = await imperialContext.newPage();
   watch('table', page); watch('rebel hand', rebel); watch('imperial hand', imperial);
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata(
@@ -22,18 +22,27 @@ test('two seats plan privately and resolve a public attack on the shared table',
 
   await page.goto('/tt');
   await page.getByRole('button', { name: 'Create tabletop room' }).click();
+  await expect(page.getByRole('heading', { name: 'PAIR BOTH PRIVATE HANDS' })).toBeVisible();
   await rebel.goto('/hand?room=FLIGHT7&seat=rebel&code=RED-5');
   await imperial.goto('/hand?room=FLIGHT7&seat=imperial&code=ONYX-2');
   await rebel.getByRole('button', { name: 'Claim Rebel seat' }).click();
+  await expect(rebel.getByText('LINKED', { exact: true })).toBeVisible();
   await imperial.getByRole('button', { name: 'Claim Imperial seat' }).click();
+  await expect(imperial.getByText('LINKED', { exact: true })).toBeVisible();
   const surfaces = [
     { id: 'table-4k', label: 'Shared 4K tabletop', page },
     { id: 'rebel-phone', label: 'Rebel private hand', page: rebel },
     { id: 'imperial-phone', label: 'Imperial private hand', page: imperial }
   ];
   await page.getByRole('button', { name: 'Ready Rebel squad' }).click();
+  await expect(page.getByRole('button', { name: 'Squad ready' })).toBeVisible();
   await page.getByRole('button', { name: 'Ready Imperial squad' }).click();
-  for (let placement = 0; placement < 6; placement += 1) await page.locator('button.placement').click();
+  await expect(page.locator('.phase')).toHaveText('setup');
+  async function placeNext(final = false) {
+    const placement = page.locator('button.placement'); const label = await placement.getAttribute('aria-label'); await placement.click();
+    if (final) await expect(page.locator('.phase')).toHaveText('planning'); else await expect(placement).not.toHaveAttribute('aria-label', label!);
+  }
+  for (let placement = 0; placement < 6; placement += 1) await placeNext();
   await steps.step('fixed-setup', {
     description: 'Players place the reviewed setup directly on the shared battlefield',
     surfaces,
@@ -44,7 +53,7 @@ test('two seats plan privately and resolve a public attack on the shared table',
       { spec: 'Both private phones remain control-free during public setup', check: async () => { for (const hand of [rebel, imperial]) { await expect(hand.getByRole('heading', { name: 'Eyes on the table' })).toBeVisible(); await expect(hand.getByRole('button')).toHaveCount(0); } } }
     ]
   });
-  for (let placement = 0; placement < 3; placement += 1) await page.locator('button.placement').click();
+  await placeNext(); await placeNext(); await placeNext(true);
   await steps.step('private-planning-ready', {
     description: 'Private planning is ready on the owning phones',
     surfaces,
@@ -57,8 +66,8 @@ test('two seats plan privately and resolve a public attack on the shared table',
   });
 
   async function planRound(rebelBearing = 'straight') {
-    for (const control of await rebel.getByRole('button', { name: new RegExp(`Red Five: speed 3 ${rebelBearing}`) }).all()) await control.click();
-    for (const control of await imperial.getByRole('button', { name: /Onyx .*: speed 3 straight/ }).all()) await control.click();
+    for (const control of await rebel.getByRole('button', { name: new RegExp(`Red Five: speed 3 ${rebelBearing}`) }).all()) { await control.click(); await expect(control).toHaveClass(/selected/); }
+    for (const control of await imperial.getByRole('button', { name: /Onyx .*: speed 3 straight/ }).all()) { await control.click(); await expect(control).toHaveClass(/selected/); }
     await rebel.getByRole('button', { name: 'Commit all maneuvers' }).click();
     await expect(page.getByText('Rebel committed.')).toBeVisible();
     await imperial.getByRole('button', { name: 'Commit all maneuvers' }).click();
@@ -69,7 +78,7 @@ test('two seats plan privately and resolve a public attack on the shared table',
     for (let index = 0; index < 3; index += 1) {
       await page.locator('button.selectable').click();
       const actions = page.getByRole('navigation', { name: /actions/ });
-      await actions.getByRole('button', { name: /focus/ }).click();
+      await actions.getByRole('button', { name: /focus/ }).click(); await expect(actions).toBeHidden();
     }
     await expect(page.locator('.phase')).toHaveText('engagement');
   }
@@ -95,8 +104,12 @@ test('two seats plan privately and resolve a public attack on the shared table',
   });
 
   await activateSquad();
-  for (let index = 0; index < 3; index += 1) await page.getByRole('button', { name: 'Pass attack' }).click();
+  for (let index = 0; index < 3; index += 1) {
+    const attacker = await page.locator('button.active').getAttribute('data-ship'); await page.getByRole('button', { name: 'Pass attack' }).click();
+    if (index < 2) await expect(page.locator('button.active')).not.toHaveAttribute('data-ship', attacker!); else await expect(page.getByRole('button', { name: 'Resolve End phase' })).toBeVisible();
+  }
   await page.getByRole('button', { name: 'Resolve End phase' }).click();
+  await expect(page.locator('.phase')).toHaveText('planning');
   await planRound('bank-left');
   await activateSquad();
   await page.locator('button.selectable').first().click();
@@ -115,25 +128,28 @@ test('two seats plan privately and resolve a public attack on the shared table',
 
   await finishDiceModifications();
   await page.getByRole('button', { name: 'Apply results' }).click();
-  for (let pass = 0; pass < 2 && await page.getByRole('button', { name: 'Pass attack' }).isVisible(); pass += 1) await page.getByRole('button', { name: 'Pass attack' }).click();
+  let attacker = await page.locator('button.active').getAttribute('data-ship'); await page.getByRole('button', { name: 'Pass attack' }).click(); await expect(page.locator('button.active')).not.toHaveAttribute('data-ship', attacker!);
+  await page.getByRole('button', { name: 'Pass attack' }).click(); await expect(page.getByRole('button', { name: 'Resolve End phase' })).toBeVisible();
   await page.getByRole('button', { name: 'Resolve End phase' }).click();
+  await expect(page.locator('.phase')).toHaveText('planning');
 
-  await rebel.getByRole('button', { name: /Red Five: speed 4 koiogran/ }).click();
-  await imperial.getByRole('button', { name: /Onyx One: speed 1 turn-left/ }).click();
-  await imperial.getByRole('button', { name: /Onyx Two: speed 1 turn-right/ }).click();
+  const redKTurn = rebel.getByRole('button', { name: /Red Five: speed 4 koiogran/ }); await redKTurn.click(); await expect(redKTurn).toHaveClass(/selected/);
+  const onyxOneTurn = imperial.getByRole('button', { name: /Onyx One: speed 1 turn-left/ }); await onyxOneTurn.click(); await expect(onyxOneTurn).toHaveClass(/selected/);
+  const onyxTwoTurn = imperial.getByRole('button', { name: /Onyx Two: speed 1 turn-right/ }); await onyxTwoTurn.click(); await expect(onyxTwoTurn).toHaveClass(/selected/);
   await rebel.getByRole('button', { name: 'Commit all maneuvers' }).click();
+  await expect(page.getByText('Rebel committed.')).toBeVisible();
   await imperial.getByRole('button', { name: 'Commit all maneuvers' }).click();
+  await expect(page.locator('.phase')).toHaveText('activation');
   await page.locator('button.selectable').click();
-  await page.getByRole('navigation', { name: /actions/ }).getByRole('button', { name: 'Pass' }).click();
+  let actions = page.getByRole('navigation', { name: /actions/ }); await actions.getByRole('button', { name: 'Pass' }).click(); await expect(actions).toBeHidden();
   await page.locator('button.selectable').click();
-  await page.getByRole('navigation', { name: /actions/ }).getByRole('button', { name: 'Pass' }).click();
+  actions = page.getByRole('navigation', { name: /actions/ }); await actions.getByRole('button', { name: 'Pass' }).click(); await expect(actions).toBeHidden();
   await page.locator('button.selectable').click();
-  await page.getByRole('navigation', { name: /actions/ }).getByRole('button', { name: 'Pass' }).click();
+  actions = page.getByRole('navigation', { name: /actions/ }); await actions.getByRole('button', { name: 'Pass' }).click(); await expect(actions).toBeHidden();
   await page.locator('button.selectable').first().click();
   await page.getByRole('button', { name: 'Roll attack and defense' }).click();
   await finishDiceModifications();
   await page.getByRole('button', { name: 'Apply results' }).click();
-  await page.getByRole('button', { name: 'Pass attack' }).click();
   await page.getByRole('button', { name: 'Concede Imperial squad' }).click();
   await page.getByRole('button', { name: 'Confirm Imperial concession' }).click();
 
@@ -148,7 +164,7 @@ test('two seats plan privately and resolve a public attack on the shared table',
   });
 
   const replayLink = page.getByRole('link', { name: 'Replay', exact: true });
-  const replayPage = await context.newPage(); await replayPage.setViewportSize({ width: 2560, height: 1440 }); watch('replay', replayPage);
+  const replayContext = await browser.newContext({ viewport: { width: 2560, height: 1440 } }); const replayPage = await replayContext.newPage(); watch('replay', replayPage);
   await replayPage.goto(await replayLink.getAttribute('href') ?? '/replay?room=FLIGHT7');
   await steps.step('immutable-replay', {
     description: 'The accepted event history can be replayed at every prefix',
@@ -161,4 +177,5 @@ test('two seats plan privately and resolve a public attack on the shared table',
   });
 
   steps.generateDocs();
+  await Promise.all([rebelContext.close(), imperialContext.close(), replayContext.close()]);
 });

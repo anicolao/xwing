@@ -22,16 +22,16 @@
     return unsubscribe;
   });
 
-  function pair() {
-    try { claimSeat(room, seat, code); message = `${seat === 'rebel' ? 'Rebel' : 'Imperial'} hand paired. Return attention to the table.`; }
+  async function pair() {
+    try { await claimSeat(room, seat, code); message = `${seat === 'rebel' ? 'Rebel' : 'Imperial'} hand paired. Return attention to the table.`; }
     catch (error) { message = error instanceof Error ? error.message : 'Pairing failed.'; }
   }
-  function assign(shipId: string, maneuverId: string) {
-    try { appendEvent({ type: 'planning/assigned', actor: seat, payload: { shipId, maneuverId } }, room); message = `${shipById(shipId)!.name} dial set. You may revise it until committing.`; }
+  async function assign(shipId: string, maneuverId: string) {
+    try { await appendEvent({ type: 'planning/assigned', actor: seat, payload: { shipId, maneuverId } }, room); message = `${shipById(shipId)!.name} dial set. You may revise it until committing.`; }
     catch (error) { message = error instanceof Error ? error.message : 'Dial could not be set.'; }
   }
-  function commit() {
-    try { appendEvent({ type: 'planning/committed', actor: seat, payload: { seat } }, room); message = 'Maneuvers committed. Return attention to the table.'; }
+  async function commit() {
+    try { await appendEvent({ type: 'planning/committed', actor: seat, payload: { seat } }, room); message = 'Maneuvers committed. Return attention to the table.'; }
     catch (error) { message = error instanceof Error ? error.message : 'Commitment failed.'; }
   }
   const allAssigned = $derived(projection.ships.length > 0 && projection.ships.every((ship) => ship.maneuver));
