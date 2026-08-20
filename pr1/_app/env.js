@@ -1,1 +1,1 @@
-export const env={PUBLIC_BASE_PATH:"/xwing/pr1"}
+export const env={PUBLIC_FIREBASE_API_KEY:"AIzaSyBfrppZkgVpM8Lz0gQVXYsG3WHyT0IBsDs",PUBLIC_BASE_PATH:"/xwing/pr1",PUBLIC_FIREBASE_PROJECT_ID:"xwing-20260820",PUBLIC_FIREBASE_AUTH_DOMAIN:"xwing-20260820.firebaseapp.com"}
