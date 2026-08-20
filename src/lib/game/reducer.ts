@@ -1,6 +1,6 @@
 import {
+  baseIntersectsCircle,
   containsPose,
-  distance,
   executeManeuver,
   isInFrontArc,
   overlaps,
@@ -224,7 +224,7 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       const collision = occupied.some((pose) => overlaps(destination, pose));
       ship.revealed = true;
       ship.pose = collision ? rollbackOverlap(ship.pose, destination, occupied) : destination;
-      const obstacle = teachingDuel.obstacleGeometry.find((item) => distance(ship.pose, item) <= item.radius + 2_000);
+      const obstacle = teachingDuel.obstacleGeometry.find((item) => baseIntersectsCircle(ship.pose, item, item.radius));
       ship.skipAction = collision || obstacle?.type === 'asteroid';
       if (obstacle?.type === 'debris') ship.stress += 1;
       if (ship.maneuver.difficulty === 'red') ship.stress += 1;

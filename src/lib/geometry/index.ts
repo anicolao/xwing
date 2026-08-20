@@ -35,8 +35,67 @@ export function executeManeuver(start: Pose, maneuver: Maneuver): Pose {
   return { x: start.x + delta.x, y: start.y + delta.y, angle: normalizeAngle(start.angle + turn) };
 }
 export const distance = (a: Point, b: Point) => Math.round(Math.hypot(a.x - b.x, a.y - b.y));
+
+export function basePolygon(pose: Pose): Point[] {
+  const half = BASE_SIZE / 2;
+  return [
+    { x: -half, y: -half },
+    { x: half, y: -half },
+    { x: half, y: half },
+    { x: -half, y: half }
+  ].map((corner) => {
+    const rotated = rotate(corner, pose.angle);
+    return { x: pose.x + rotated.x, y: pose.y + rotated.y };
+  });
+}
+
+const axes = (polygon: readonly Point[]) =>
+  polygon.map((point, index) => {
+    const next = polygon[(index + 1) % polygon.length]!;
+    return { x: -(next.y - point.y), y: next.x - point.x };
+  });
+
+const projection = (polygon: readonly Point[], axis: Point) => {
+  const values = polygon.map((point) => point.x * axis.x + point.y * axis.y);
+  return { min: Math.min(...values), max: Math.max(...values) };
+};
+
+const polygonsOverlap = (a: readonly Point[], b: readonly Point[]) =>
+  [...axes(a), ...axes(b)].every((axis) => {
+    const first = projection(a, axis);
+    const second = projection(b, axis);
+    return first.max > second.min && second.max > first.min;
+  });
+
+const pointToSegmentDistance = (point: Point, start: Point, end: Point) => {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  const amount =
+    lengthSquared === 0
+      ? 0
+      : Math.max(0, Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSquared));
+  return Math.hypot(point.x - (start.x + amount * dx), point.y - (start.y + amount * dy));
+};
+
+const polygonDistance = (a: readonly Point[], b: readonly Point[]) => {
+  if (polygonsOverlap(a, b)) return 0;
+  let closest = Number.POSITIVE_INFINITY;
+  for (const [vertices, edges] of [
+    [a, b],
+    [b, a]
+  ] as const) {
+    for (const vertex of vertices) {
+      for (let index = 0; index < edges.length; index += 1) {
+        closest = Math.min(closest, pointToSegmentDistance(vertex, edges[index]!, edges[(index + 1) % edges.length]!));
+      }
+    }
+  }
+  return Math.round(closest);
+};
+
 export function rangeBetween(a: Pose, b: Pose): 0 | 1 | 2 | 3 | 4 {
-  const edgeDistance = Math.max(0, distance(a, b) - BASE_SIZE);
+  const edgeDistance = polygonDistance(basePolygon(a), basePolygon(b));
   if (edgeDistance === 0) return 0;
   if (edgeDistance <= RANGE_UNIT) return 1;
   if (edgeDistance <= RANGE_UNIT * 2) return 2;
@@ -45,11 +104,21 @@ export function rangeBetween(a: Pose, b: Pose): 0 | 1 | 2 | 3 | 4 {
 }
 export function isInFrontArc(attacker: Pose, target: Pose): boolean {
   const facing = rotate({ x: 0, y: -1_000 }, attacker.angle);
-  const vector = { x: target.x - attacker.x, y: target.y - attacker.y };
-  const dot = facing.x * vector.x + facing.y * vector.y;
-  return dot > 0 && Math.abs(facing.x * vector.y - facing.y * vector.x) <= dot;
+  return [...basePolygon(target), target].some((point) => {
+    const vector = { x: point.x - attacker.x, y: point.y - attacker.y };
+    const dot = facing.x * vector.x + facing.y * vector.y;
+    return dot > 0 && Math.abs(facing.x * vector.y - facing.y * vector.x) <= dot;
+  });
 }
-export const overlaps = (a: Pose, b: Pose) => Math.abs(a.x - b.x) < BASE_SIZE && Math.abs(a.y - b.y) < BASE_SIZE;
+export const overlaps = (a: Pose, b: Pose) => polygonsOverlap(basePolygon(a), basePolygon(b));
+
+export const baseIntersectsCircle = (pose: Pose, center: Point, radius: number) => {
+  const polygon = basePolygon(pose);
+  if (polygon.some((point) => distance(point, center) <= radius)) return true;
+  return polygon.some(
+    (point, index) => pointToSegmentDistance(center, point, polygon[(index + 1) % polygon.length]!) <= radius
+  );
+};
 export function rollbackOverlap(start: Pose, destination: Pose, occupied: readonly Pose[]): Pose {
   let low = 0;
   let high = 1_000;
@@ -81,6 +150,5 @@ export function segmentIntersectsCircle(start: Point, end: Point, center: Point,
   return distance(center, { x: start.x + projection * dx, y: start.y + projection * dy }) <= radius;
 }
 export function containsPose(pose: Pose, width = 91_440, height = 91_440): boolean {
-  const half = BASE_SIZE / 2;
-  return pose.x >= half && pose.y >= half && pose.x <= width - half && pose.y <= height - half;
+  return basePolygon(pose).every((point) => point.x >= 0 && point.y >= 0 && point.x <= width && point.y <= height);
 }

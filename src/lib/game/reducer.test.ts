@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { executeManeuver, isInFrontArc, rangeBetween, rollbackOverlap, segmentIntersectsCircle } from '$lib/geometry';
+import {
+  baseIntersectsCircle,
+  basePolygon,
+  containsPose,
+  executeManeuver,
+  isInFrontArc,
+  overlaps,
+  rangeBetween,
+  rollbackOverlap,
+  segmentIntersectsCircle
+} from '$lib/geometry';
 import { shipById } from '$lib/manifests/teaching-duel';
 import { applyEvent, createInitialState, GAME_CONFIG, replay } from './reducer';
 import type { GameEvent } from './model';
@@ -59,6 +69,30 @@ describe('fixed-point geometry', () => {
     expect(rangeBetween(attacker, { x: 20_000, y: 64_000, angle: 0 })).toBe(1);
     expect(isInFrontArc(attacker, { x: 20_000, y: 30_000, angle: 0 })).toBe(true);
     expect(isInFrontArc(attacker, { x: 40_000, y: 50_000, angle: 0 })).toBe(false);
+  });
+  it('classifies exact range boundaries from rotated base edges', () => {
+    const origin = { x: 20_000, y: 50_000, angle: 45_000 };
+    expect(rangeBetween(origin, { x: 20_000, y: 50_000, angle: 0 })).toBe(0);
+    expect(rangeBetween({ x: 20_000, y: 50_000, angle: 0 }, { x: 20_000, y: 64_000, angle: 0 })).toBe(1);
+    expect(rangeBetween({ x: 20_000, y: 50_000, angle: 0 }, { x: 20_000, y: 74_000, angle: 0 })).toBe(2);
+    expect(rangeBetween({ x: 20_000, y: 50_000, angle: 0 }, { x: 20_000, y: 84_000, angle: 0 })).toBe(3);
+    expect(rangeBetween({ x: 20_000, y: 50_000, angle: 0 }, { x: 20_000, y: 84_001, angle: 0 })).toBe(4);
+  });
+  it('treats touching bases as range zero without treating them as overlapping', () => {
+    const first = { x: 20_000, y: 20_000, angle: 0 };
+    const touching = { x: 24_000, y: 20_000, angle: 0 };
+    expect(rangeBetween(first, touching)).toBe(0);
+    expect(overlaps(first, touching)).toBe(false);
+    expect(overlaps(first, { ...touching, x: 23_999 })).toBe(true);
+    expect(overlaps(first, { x: 24_800, y: 20_000, angle: 45_000 })).toBe(true);
+  });
+  it('checks rotated base corners against obstacles and the play-area boundary', () => {
+    const rotated = { x: 2_828, y: 2_828, angle: 45_000 };
+    expect(basePolygon(rotated)).toHaveLength(4);
+    expect(containsPose(rotated)).toBe(true);
+    expect(containsPose({ ...rotated, x: 2_827 })).toBe(false);
+    expect(baseIntersectsCircle({ x: 10_000, y: 10_000, angle: 0 }, { x: 13_000, y: 10_000 }, 1_000)).toBe(true);
+    expect(baseIntersectsCircle({ x: 10_000, y: 10_000, angle: 0 }, { x: 13_001, y: 10_000 }, 1_000)).toBe(false);
   });
   it('backs up to the furthest non-overlapping pose and measures obstruction semantically', () => {
     const stopped = rollbackOverlap({ x: 10_000, y: 30_000, angle: 0 }, { x: 10_000, y: 10_000, angle: 0 }, [
