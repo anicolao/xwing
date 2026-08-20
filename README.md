@@ -10,8 +10,8 @@ effective October 12, 2021. Later Atomic Mass Games points, scenarios, errata,
 and tournament rules are a different, explicitly versioned compatibility
 target; they must not be mixed silently into the FFG ruleset.
 
-This first milestone contains product documentation and original art. There is
-not yet a playable application.
+This first milestone contains product documentation, original art, and a
+deployable application shell. Gameplay begins with the next vertical slice.
 
 ## Project documents
 
@@ -21,6 +21,10 @@ not yet a playable application.
   of the targeted rules.
 - [ASSETS.md](ASSETS.md) records the original generated artwork, prompts,
   constraints, dimensions, and intended uses.
+- [IMPLEMENTATION_PLAN.md](IMPLEMENTATION_PLAN.md) defines the architecture,
+  data gates, vertical slices, and completion criteria.
+- [E2E_GUIDE.md](E2E_GUIDE.md) defines the browser scenarios that make those
+  slices executable product documentation.
 
 These documents are not substitutes for the published rulebook or rules
 reference.
@@ -65,10 +69,26 @@ future randomized state. The ordinary client must preserve the physical
 game's information boundaries; cryptographic secrecy or server-authoritative
 validation is a separate future project.
 
-No package manifest, toolchain, Firebase project, or deployment target has
-been selected in this documentation-only milestone. Those should be
-established together in the first implementation slice rather than copied
-without review.
+The repository includes a Nix-pinned SvelteKit/Bun scaffold, phone and desktop
+Playwright smoke coverage, and static GitHub Pages deployment. Pull request
+`N` is retained at `https://anicolao.github.io/xwing/prN/`; the main branch is
+published at `https://anicolao.github.io/xwing/`.
+
+## Development
+
+Install and verify through the locked development environment:
+
+```sh
+nix develop --command bun install --frozen-lockfile
+nix develop --command bunx playwright install chromium
+nix develop --command bun run verify:change
+```
+
+Start the local application with:
+
+```sh
+nix develop --command bun run dev
+```
 
 ## Rules and data policy
 

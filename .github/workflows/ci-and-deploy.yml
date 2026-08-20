@@ -1,0 +1,90 @@
+name: Verify and deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Static, browser, and build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: nix develop --command bun install --frozen-lockfile
+      - run: nix develop --command bunx playwright install chromium
+      - run: nix develop --command bun run check
+      - run: nix develop --command bun run check:workflow
+      - name: Run browser scenarios
+        run: nix develop --command bun run test:e2e
+        env:
+          CI: 'true'
+      - name: Verify nested pull-request build
+        run: nix develop --command bun run build
+        env:
+          PUBLIC_BASE_PATH: /xwing/pr${{ github.event.pull_request.number || 'local' }}
+          VITE_GIT_HASH: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 30
+
+  deploy:
+    needs: verify
+    if: >-
+      github.event_name != 'pull_request' ||
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: cachix/install-nix-action@v31
+      - run: nix develop --command bun install --frozen-lockfile
+      - name: Determine deployment path
+        id: deployment
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "base=/xwing/pr${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+            echo "destination=pr${{ github.event.pull_request.number }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=/xwing" >> "$GITHUB_OUTPUT"
+            echo "destination=" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build static client
+        run: nix develop --command bun run build
+        env:
+          PUBLIC_BASE_PATH: ${{ steps.deployment.outputs.base }}
+          VITE_GIT_HASH: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: peaceiris/actions-gh-pages@v4.1.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: build
+          destination_dir: ${{ steps.deployment.outputs.destination }}
+          keep_files: true
+      - name: Link the retained pull-request preview
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PREVIEW_URL: >-
+            https://${{ github.repository_owner }}.github.io/xwing/pr${{
+            github.event.pull_request.number }}/
+        run: >-
+          nix develop --command gh pr comment "$PR_NUMBER"
+          --repo "$GITHUB_REPOSITORY"
+          --edit-last
+          --create-if-none
+          --body "Preview: [$PREVIEW_URL]($PREVIEW_URL)"

@@ -1,0 +1,9 @@
+.cache/
+.direnv/
+.env
+.svelte-kit/
+build/
+node_modules/
+playwright-report/
+result
+test-results/
