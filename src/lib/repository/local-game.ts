@@ -130,17 +130,44 @@ export function subscribeToRoom(roomId: string, listener: (events: GameEvent[]) 
   }
   let stopped = false;
   let unsubscribe = () => {};
+  let poll: ReturnType<typeof setInterval> | undefined;
+  let reading = false;
+  const update = async () => {
+    if (stopped || reading) return;
+    reading = true;
+    try {
+      const events = await readRemote(roomId);
+      if (!stopped) listener(events);
+    } catch {
+      // A failed realtime channel starts this same read on a bounded polling interval.
+    } finally {
+      reading = false;
+    }
+  };
+  const fallBackToPolling = () => {
+    if (poll || stopped) return;
+    void update();
+    poll = setInterval(() => void update(), 1_000);
+  };
   void remoteClient().then(({ db }) => {
     if (stopped) return;
+    void update();
     unsubscribe = onSnapshot(
       query(collection(db, 'games', roomId, 'events'), orderBy('sequence')),
-      (snapshot) => listener(snapshot.docs.map((entry) => entry.data() as GameEvent)),
-      () => listener([])
+      (snapshot) => {
+        if (poll) {
+          clearInterval(poll);
+          poll = undefined;
+        }
+        listener(snapshot.docs.map((entry) => entry.data() as GameEvent));
+      },
+      fallBackToPolling
     );
   });
   return () => {
     stopped = true;
     unsubscribe();
+    if (poll) clearInterval(poll);
   };
 }
 
