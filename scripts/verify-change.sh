@@ -10,5 +10,6 @@ git diff --check
 bun run check:e2e-steps
 bun run check
 bun run check:workflow
+bun run test:unit
 bun run test:e2e
 bun run build
