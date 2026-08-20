@@ -8,7 +8,7 @@ export interface GameState {
   seats: Record<Seat, { joined: boolean; ready: boolean; committed: boolean }>;
   setupPlaced: string[];
   ships: Record<string, ShipState>; activeShipId?: string;
-  pending: 'setup' | 'reveal' | 'action' | 'target' | 'attack' | 'damage' | 'end' | null;
+  pending: 'setup' | 'reveal' | 'action' | 'target' | 'attack' | 'attacker-modify' | 'defender-modify' | 'damage' | 'end' | null;
   attack?: { attackerId: string; defenderId: string; range: 1 | 2 | 3; obstructed: boolean; attack: AttackFace[]; defense: DefenseFace[] };
   winner?: Seat | 'draw'; damageDeck: string[]; damageCursor: number; log: string[];
 }
@@ -26,6 +26,8 @@ export type GameEvent =
   | EventBase<'engagement/targeted', { attackerId: string; defenderId: string }>
   | EventBase<'engagement/passed', { attackerId: string }>
   | EventBase<'engagement/rolled', Record<string, never>>
+  | EventBase<'engagement/attack-modified', { choice: 'focus' | 'force' | 'pass' }>
+  | EventBase<'engagement/defense-modified', { choice: 'focus' | 'evade' | 'pass' }>
   | EventBase<'engagement/resolved', Record<string, never>>
   | EventBase<'round/ended', Record<string, never>>
   | EventBase<'game/conceded', { seat: Seat }>

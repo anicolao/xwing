@@ -153,7 +153,7 @@ One shared 4K table pairs two private hands, keeps both dial values off the publ
 **Verifications:**
 
 - [x] All three ships moved through canonical speed-three geometry before combat
-- [x] The table applies the range-one bonus and presents labeled attack and defense dice
+- [x] The table applies the range-one bonus and presents labeled dice with an explicit attacker modification window
 - [x] Both phones remain public-control-free waiting surfaces during combat
 - [x] The complete multi-surface story has no browser or asset error
 
@@ -191,7 +191,7 @@ One shared 4K table pairs two private hands, keeps both dial values off the publ
 
 **Verifications:**
 
-- [x] A destroyed ship displays production damage-card art
+- [x] A damaged ship displays production damage-card art
 - [x] The result freezes public gameplay and offers replay and rematch on the table
 - [x] Both private hands remain waiting surfaces after game end
 

@@ -48,6 +48,8 @@
   }
   function passAttack() { perform(() => appendEvent({ type: 'engagement/passed', actor: 'table', payload: { attackerId: game.activeShipId! } }), 'No attack. Next ship engages.'); }
   function roll() { perform(() => appendEvent({ type: 'engagement/rolled', actor: 'table', payload: {} }), 'Dice rolled from the committed seed.'); }
+  function modifyAttack(choice: 'focus' | 'force' | 'pass') { perform(() => appendEvent({ type: 'engagement/attack-modified', actor: 'table', payload: { choice } }), choice === 'pass' ? 'Attacker passed modifications.' : `Attacker spent ${choice}.`); }
+  function modifyDefense(choice: 'focus' | 'evade' | 'pass') { perform(() => appendEvent({ type: 'engagement/defense-modified', actor: 'table', payload: { choice } }), choice === 'pass' ? 'Defender passed modifications.' : `Defender spent ${choice}.`); }
   function resolveAttack() { perform(() => appendEvent({ type: 'engagement/resolved', actor: 'table', payload: {} }), 'Results neutralized and damage applied.'); }
   function endRound() { perform(() => appendEvent({ type: 'round/ended', actor: 'table', payload: {} }), 'End phase resolved.'); }
   function concede(seat: Seat) {
@@ -153,7 +155,11 @@
             <i></i>
             {#each game.attack.defense as face}<img src={`${assets}/assets/icons/die-${face}.png`} alt={`Defense die ${face}`} />{/each}
           </div>
-          <button onclick={resolveAttack}>Apply results</button>
+          {#if game.pending === 'attacker-modify'}
+            <nav class="modifier-controls" aria-label="Attacker dice modifications"><button onclick={() => modifyAttack('focus')} disabled={!game.ships[game.attack.attackerId]?.focus || !game.attack.attack.includes('focus')}>Spend focus</button><button onclick={() => modifyAttack('force')} disabled={!game.ships[game.attack.attackerId]?.force || !game.attack.attack.includes('focus')}>Spend Force</button><button onclick={() => modifyAttack('pass')}>Pass attack modification</button></nav>
+          {:else if game.pending === 'defender-modify'}
+            <nav class="modifier-controls" aria-label="Defender dice modifications"><button onclick={() => modifyDefense('focus')} disabled={!game.ships[game.attack.defenderId]?.focus || !game.attack.defense.includes('focus')}>Spend focus</button><button onclick={() => modifyDefense('evade')} disabled={!game.ships[game.attack.defenderId]?.evade}>Spend evade</button><button onclick={() => modifyDefense('pass')}>Pass defense modification</button></nav>
+          {:else}<button onclick={resolveAttack}>Apply results</button>{/if}
         {/if}
       </div>
     {/if}
@@ -219,6 +225,7 @@
   .instruction { position:absolute; z-index:6; left:50%; top:50%; display:grid; gap:7px; justify-items:center; padding:18px 28px; transform:translate(-50%,-50%) rotate(calc(-1 * var(--view-rotation))); border:1px solid #efbb58; border-radius:10px; background:#07111feb; text-align:center; pointer-events:none; } .instruction b { color:#efbb58; font:700 1.1rem 'Space Mono'; } .instruction button, .dice-tray button { border:1px solid #6fd4e8; border-radius:6px; background:#17384c; color:white; font-weight:700; pointer-events:auto; }
   .action-strip { position:absolute; z-index:12; left:50%; bottom:11vh; display:flex; align-items:center; gap:8px; padding:10px 16px; transform:translateX(-50%); border:1px solid #efbb58; border-radius:10px 10px 0 0; background:#071421f5; } .action-strip.far-actions { top:11vh; bottom:auto; transform:translateX(-50%) rotate(180deg); border-radius:0 0 10px 10px; } .action-strip button { display:flex; align-items:center; gap:5px; min-height:52px; border:1px solid #6fd4e8; border-radius:6px; background:#133247; color:white; text-transform:capitalize; } .action-strip img { width:30px; height:30px; object-fit:contain; }
   .dice-tray { position:absolute; z-index:9; left:50%; top:50%; display:grid; gap:12px; justify-items:center; min-width:44%; padding:18px; transform:translate(-50%,-50%) rotate(calc(-1 * var(--view-rotation))); border:1px solid #efbb58; border-radius:12px; background:#07111ff5; } .dice-tray p { margin:0; font-weight:700; } .dice { display:flex; align-items:center; gap:10px; } .dice img { width:clamp(38px,4vw,72px); aspect-ratio:1; object-fit:contain; } .dice i { width:2px; height:55px; margin:0 8px; background:#78929c; }
+  .modifier-controls { display:flex; gap:8px; } .modifier-controls button { min-height:48px; padding:8px 14px; } .modifier-controls button:disabled { opacity:.38; }
   .end-round { position:absolute; z-index:12; left:50%; bottom:calc(11vh + 30px); transform:translateX(-50%); border:1px solid #efbb58; border-radius:7px; padding:10px 18px; background:#a85e1e; color:white; font-weight:700; }
   .result { position:absolute; z-index:15; left:50%; top:50%; display:grid; gap:12px; padding:40px 70px; transform:translate(-50%,-50%); border:2px solid #efbb58; border-radius:14px; background:#07111ff5; text-align:center; } .result b { color:#efbb58; font:700 2rem 'Space Mono'; } .result a { color:#6fd4e8; } .result button { border:1px solid #efbb58; border-radius:6px; background:#a85e1e; color:white; font-weight:700; }
   .announcement { position:absolute; z-index:10; left:50%; bottom:calc(11vh + 10px); margin:0; padding:7px 16px; transform:translateX(-50%); border-radius:30px; background:#081522dd; color:#cce7ec; font-size:clamp(12px,.8vw,18px); }

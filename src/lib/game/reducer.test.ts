@@ -70,6 +70,14 @@ describe('event reducer', () => {
     const first = applyEvent(state, event({ id: 'e5', type: 'setup/placed', actor: 'table', sequence: 5, payload: { pieceId: 'asteroid-01' } }));
     expect(first.diagnostic).toBeUndefined(); expect(first.state.setupPlaced).toEqual(['asteroid-01']); expect(first.state.phase).toBe('setup');
   });
+  it('serializes attacker and defender dice modification windows', () => {
+    const state = createInitialState('duel'); state.phase = 'engagement'; state.revision = 20; state.pending = 'attacker-modify'; state.activeShipId = 'red-five'; state.ships['red-five']!.focus = 1; state.ships['onyx-one']!.evade = 1;
+    state.attack = { attackerId: 'red-five', defenderId: 'onyx-one', range: 2, obstructed: false, attack: ['focus', 'blank'], defense: ['blank'] };
+    const attack = applyEvent(state, event({ id: 'e21', type: 'engagement/attack-modified', actor: 'table', sequence: 21, payload: { choice: 'focus' } }));
+    expect(attack.state.attack?.attack).toEqual(['hit', 'blank']); expect(attack.state.pending).toBe('defender-modify'); expect(attack.state.ships['red-five']?.focus).toBe(0);
+    const defense = applyEvent(attack.state, event({ id: 'e22', type: 'engagement/defense-modified', actor: 'table', sequence: 22, payload: { choice: 'evade' } }));
+    expect(defense.state.attack?.defense).toEqual(['blank', 'evade']); expect(defense.state.pending).toBe('damage'); expect(defense.state.ships['onyx-one']?.evade).toBe(0);
+  });
 });
 
 describe('standard damage deck', () => {

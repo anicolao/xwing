@@ -27,19 +27,9 @@ const nextActivation = (state: GameState) => {
 function resolveDamage(state: GameState) {
   if (!state.attack) return;
   const defender = state.ships[state.attack.defenderId]!;
-  const attacker = state.ships[state.attack.attackerId]!;
-  if (attacker.focus && state.attack.attack.includes('focus')) {
-    state.attack.attack = state.attack.attack.map((face) => face === 'focus' ? 'hit' : face);
-    attacker.focus -= 1;
-  } else if (attacker.force && state.attack.attack.includes('focus')) {
-    const firstFocus = state.attack.attack.indexOf('focus');
-    state.attack.attack[firstFocus] = 'hit';
-    attacker.force -= 1;
-  }
   const hits = state.attack.attack.filter((face) => face === 'hit' || face === 'critical').length;
-  const evades = state.attack.defense.filter((face) => face === 'evade').length + Math.min(defender.evade, 1);
+  const evades = state.attack.defense.filter((face) => face === 'evade').length;
   let remaining = Math.max(0, hits - evades);
-  if (defender.evade && hits) defender.evade -= 1;
   const shieldLoss = Math.min(defender.shields, remaining);
   defender.shields -= shieldLoss; remaining -= shieldLoss;
   for (let index = 0; index < remaining; index += 1) {
@@ -140,7 +130,30 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       const attackDice = Math.max(0, shipById(state.attack.attackerId)!.attack - weaponsFailure + (state.attack.range === 1 ? 1 : 0));
       const defenseDice = Math.max(0, shipById(state.attack.defenderId)!.agility - structuralDamage + (state.attack.range === 3 ? 1 : 0) + (state.attack.obstructed ? 1 : 0));
       const attackRoll = rollAttack(state.seed, attackDice); const defenseRoll = rollDefense(attackRoll.seed, defenseDice);
-      state.seed = defenseRoll.seed; state.attack.attack = attackRoll.results; state.attack.defense = defenseRoll.results; state.pending = 'damage'; break;
+      state.seed = defenseRoll.seed; state.attack.attack = attackRoll.results; state.attack.defense = defenseRoll.results; state.pending = 'attacker-modify'; break;
+    }
+    case 'engagement/attack-modified': {
+      if (event.actor !== 'table' || state.phase !== 'engagement' || state.pending !== 'attacker-modify' || !state.attack) return reject('The attacker cannot modify dice now.');
+      const attacker = state.ships[state.attack.attackerId]!;
+      if (event.payload.choice === 'focus') {
+        if (!attacker.focus || !state.attack.attack.includes('focus')) return reject('No focus result can be modified.');
+        state.attack.attack = state.attack.attack.map((face) => face === 'focus' ? 'hit' : face); attacker.focus -= 1;
+      } else if (event.payload.choice === 'force') {
+        const firstFocus = state.attack.attack.indexOf('focus'); if (!attacker.force || firstFocus < 0) return reject('No Force modification is available.');
+        state.attack.attack[firstFocus] = 'hit'; attacker.force -= 1;
+      }
+      state.pending = 'defender-modify'; break;
+    }
+    case 'engagement/defense-modified': {
+      if (event.actor !== 'table' || state.phase !== 'engagement' || state.pending !== 'defender-modify' || !state.attack) return reject('The defender cannot modify dice now.');
+      const defender = state.ships[state.attack.defenderId]!;
+      if (event.payload.choice === 'focus') {
+        if (!defender.focus || !state.attack.defense.includes('focus')) return reject('No defense focus result can be modified.');
+        state.attack.defense = state.attack.defense.map((face) => face === 'focus' ? 'evade' : face); defender.focus -= 1;
+      } else if (event.payload.choice === 'evade') {
+        if (!defender.evade) return reject('No evade token is available.'); defender.evade -= 1; state.attack.defense.push('evade');
+      }
+      state.pending = 'damage'; break;
     }
     case 'engagement/resolved': {
       if (event.actor !== 'table' || state.phase !== 'engagement' || state.pending !== 'damage' || !state.attack) return reject('No rolled attack is ready to resolve.');
