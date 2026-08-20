@@ -20,7 +20,7 @@ jobs:
     name: Static, browser, and build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: cachix/install-nix-action@v31
       - run: nix develop --command bun install --frozen-lockfile
       - run: nix develop --command bunx playwright install chromium
@@ -35,7 +35,7 @@ jobs:
         env:
           PUBLIC_BASE_PATH: /xwing/pr${{ github.event.pull_request.number || 'local' }}
           VITE_GIT_HASH: ${{ github.event.pull_request.head.sha || github.sha }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: playwright-report
@@ -49,7 +49,7 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: cachix/install-nix-action@v31
       - run: nix develop --command bun install --frozen-lockfile
       - name: Determine deployment path
