@@ -1,6 +1,6 @@
 # Application shell and deployment
 
-The static X-Wing client loads, hydrates, and serves the original dial and ship artwork at phone and desktop sizes.
+The static X-Wing client loads, hydrates, and serves the complete original generated artwork set at phone and desktop sizes.
 
 ## The flight console is ready
 
@@ -30,4 +30,5 @@ The static X-Wing client loads, hydrates, and serves the original dial and ship 
 - [x] Client hydration changes the live status to “Flight console ready”
 - [x] The foundation scope, documentation links, GPL license, and deterministic build marker are visible
 - [x] The circular dial, T-65, and TIE artwork load with nonzero dimensions
+- [x] Every checked-in generated raster asset decodes with nonzero dimensions
 - [x] No browser error or failed request is present

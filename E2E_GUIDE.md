@@ -131,7 +131,9 @@ it complete.
 - Load the hydrated SvelteKit client at phone and desktop sizes.
 - Verify the stable title, primary heading, readiness status, scope message,
   documentation links, GPL marker, and deterministic build hash.
-- Verify the dial and both ship asset classes load with nonzero dimensions.
+- Verify the generated app icon, dial, damage back, ships, base, obstacles,
+  maneuvers, dice, actions, and status tokens all decode with nonzero
+  dimensions.
 - Assert no missing-resource or uncaught browser errors.
 - Build separately with `/xwing/pr1` and prove asset URLs honor the nested base
   path.

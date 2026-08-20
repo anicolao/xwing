@@ -1,13 +1,60 @@
 import { expect, test } from '@playwright/test';
 import { TestStepHelper } from '../helpers/test-step-helper';
 
+const generatedAssetPaths = [
+  'icon.png',
+  'assets/starfield.webp',
+  'assets/maneuver-dial-back.webp',
+  'assets/damage-card-back.webp',
+  'assets/ships/t65-x-wing.webp',
+  'assets/ships/tie-ln-fighter.webp',
+  'assets/bases/small-base.png',
+  ...[
+    'action-barrel-roll',
+    'action-boost',
+    'action-evade',
+    'action-focus',
+    'action-lock',
+    'die-blank',
+    'die-critical',
+    'die-evade',
+    'die-focus',
+    'die-hit',
+    'token-charge',
+    'token-critical',
+    'token-disarm',
+    'token-first-player',
+    'token-force',
+    'token-ion',
+    'token-shield',
+    'token-stress'
+  ].map((name) => `assets/icons/${name}.png`),
+  ...[
+    'bank-left',
+    'bank-right',
+    'koiogran',
+    'stationary',
+    'straight',
+    'turn-left',
+    'turn-right'
+  ].map((name) => `assets/maneuvers/${name}.png`),
+  ...[
+    'asteroid-01',
+    'asteroid-02',
+    'asteroid-03',
+    'debris-cloud-01',
+    'debris-cloud-02',
+    'debris-cloud-03'
+  ].map((name) => `assets/obstacles/${name}.png`)
+];
+
 test('application shell loads, hydrates, and serves its original assets', async ({ page }, testInfo) => {
   const browserErrors: string[] = [];
   const failedRequests: string[] = [];
   const steps = new TestStepHelper(page, testInfo);
   steps.setMetadata(
     'Application shell and deployment',
-    'The static X-Wing client loads, hydrates, and serves the original dial and ship artwork at phone and desktop sizes.'
+    'The static X-Wing client loads, hydrates, and serves the complete original generated artwork set at phone and desktop sizes.'
   );
 
   page.on('console', (message) => {
@@ -58,6 +105,27 @@ test('application shell loads, hydrates, and serves its original assets', async 
               )
             )
             .toBe(true);
+        }
+      },
+      {
+        spec: 'Every checked-in generated raster asset decodes with nonzero dimensions',
+        check: async () => {
+          const failedAssets = await page.evaluate(async (paths) => {
+            const results = await Promise.all(
+              paths.map(
+                (path) =>
+                  new Promise<{ path: string; loaded: boolean }>((resolve) => {
+                    const image = new Image();
+                    image.onload = () =>
+                      resolve({ path, loaded: image.naturalWidth > 0 && image.naturalHeight > 0 });
+                    image.onerror = () => resolve({ path, loaded: false });
+                    image.src = new URL(path, document.baseURI).href;
+                  })
+              )
+            );
+            return results.filter(({ loaded }) => !loaded).map(({ path }) => path);
+          }, generatedAssetPaths);
+          expect(failedAssets).toEqual([]);
         }
       },
       {

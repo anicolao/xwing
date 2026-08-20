@@ -1,109 +1,222 @@
-# Original artwork
+# Original generated artwork
 
-The files in `static/assets/` were generated specifically for this project with
-OpenAI's built-in image-generation tool on August 19, 2026. They do not reuse
-published *Star Wars: X-Wing* illustrations, logos, faction emblems, miniature
-renders, card frames, or trade dress.
+Every visual file in `static/` is now raster artwork created specifically for
+this project with OpenAI's built-in image-generation tool on August 19–20,
+2026. The previous authored SVG icon, maneuver, obstacle-mask, ship-base, and
+application-icon files have been removed.
 
-Rules values, names, directions, states, and accessible labels must remain
-semantic HTML or game data. Artwork is never the sole carrier of information.
+Generated pixels are presentation only. Rules values, names, directions,
+states, collision outlines, arcs, guides, ranges, and accessible labels remain
+semantic HTML or versioned game/geometry data. No generated pixel can decide a
+legal move or ruling.
 
-## Required asset inventory
+The artwork does not reuse published illustrations, logos, faction emblems,
+miniature photographs, card frames, glyphs, or trade dress.
 
-The first playable slice is the fixed Second Edition Core Set teaching duel
-defined in [VISION.md](VISION.md). Every visual class required by that slice is
-listed below. “Raster” means original generated illustration. “SVG” means an
-original deterministic symbol or geometry asset. “Runtime” means rules data
-rendered by accessible HTML, CSS, SVG, or canvas and must not be baked into an
-image.
+## Review inventory
 
-### Generated raster artwork
+### Battlefield and component art
 
-| File | Required instance | Purpose | Size | Status |
-| --- | --- | --- | --- | --- |
-| `static/assets/starfield.webp` | Play area | Quiet full-bleed battlefield background | 1536×1024 | Complete |
-| `static/assets/maneuver-dial-back.webp` | Maneuver dial | Circular hidden-dial texture, cropped to a circle by the UI | 768×768 | Complete |
-| `static/assets/damage-card-back.webp` | Damage deck | Shared facedown damage-card texture | 768×1096 | Complete |
-| `static/assets/ships/t65-x-wing.webp` | T-65 X-wing | Original top-down ship illustration, clipped inside its semantic base | 768×768 | Complete |
-| `static/assets/ships/tie-ln-fighter.webp` | TIE/ln fighter | Original top-down ship illustration, reused with accessible ship IDs | 768×768 | Complete |
-| `static/assets/obstacles/asteroid-01.webp` | Asteroid 1 | Rocky surface artwork clipped by obstacle mask 1 | 768×768 | Complete |
-| `static/assets/obstacles/asteroid-02.webp` | Asteroid 2 | Rocky surface artwork clipped by obstacle mask 2 | 768×768 | Complete |
-| `static/assets/obstacles/asteroid-03.webp` | Asteroid 3 | Rocky surface artwork clipped by obstacle mask 3 | 768×768 | Complete |
-| `static/assets/obstacles/debris-cloud-01.webp` | Debris cloud 1 | Wreckage artwork clipped by obstacle mask 1 | 768×768 | Complete |
-| `static/assets/obstacles/debris-cloud-02.webp` | Debris cloud 2 | Wreckage artwork clipped by obstacle mask 2 | 768×768 | Complete |
-| `static/assets/obstacles/debris-cloud-03.webp` | Debris cloud 3 | Wreckage artwork clipped by obstacle mask 3 | 768×768 | Complete |
-
-Raster files are opaque WebP images. The ship and obstacle illustrations are
-decorative fills: their pixels never determine position, collision, range,
-arc, obstruction, or identity.
-
-### Deterministic SVG assets
-
-| File | Contents | Status |
+| File | Purpose | Size |
 | --- | --- | --- |
-| `static/assets/game-icons.svg` | Original attack, defense, action, shield, Force, charge, stress, ion, disarm, lock, and first-player symbols | Complete |
-| `static/assets/maneuver-symbols.svg` | Straight, bank, turn, Koiogran-turn, and stationary arrows used by the Core Set dials | Complete |
-| `static/assets/obstacle-masks.svg` | Three original asteroid and three original debris-cloud silhouettes | Complete |
-| `static/assets/ship-bases.svg` | Small-base outline, guides, front arc, bullseye, center line, and ID sockets | Complete |
+| [`static/assets/starfield.webp`](static/assets/starfield.webp) | Quiet full-bleed battlefield background | 1536×1024 |
+| [`static/assets/maneuver-dial-back.webp`](static/assets/maneuver-dial-back.webp) | Circular hidden maneuver dial | 768×768 |
+| [`static/assets/damage-card-back.webp`](static/assets/damage-card-back.webp) | Shared facedown damage-card art | 768×1096 |
+| [`static/assets/ships/t65-x-wing.webp`](static/assets/ships/t65-x-wing.webp) | Original overhead T-65 illustration | 768×768 |
+| [`static/assets/ships/tie-ln-fighter.webp`](static/assets/ships/tie-ln-fighter.webp) | Original overhead TIE/ln illustration | 768×768 |
+| [`static/assets/bases/small-base.png`](static/assets/bases/small-base.png) | Decorative small-base treatment | 768×768 |
+| [`static/icon.png`](static/icon.png) | Generated application icon | 512×512 |
 
-SVG symbols use original geometry rather than tracing the publisher's glyphs.
-Every consuming control still needs an accessible name and visible text or
-tooltip.
+### Generated obstacle art
 
-### Runtime-rendered assets
+These six complete obstacle illustrations replace the former full-bleed
+textures plus SVG clipping masks. Their visible silhouettes are decorative;
+canonical collision polygons will live in versioned geometry data.
 
-These are required, but a static image would be the wrong implementation:
-
-| Asset class | Runtime source of truth |
+| Asteroids | Debris clouds |
 | --- | --- |
-| Maneuver-dial faces | Versioned ship-dial data plus `maneuver-symbols.svg`; the hidden side uses `maneuver-dial-back.webp` |
-| Maneuver templates and range ruler | Canonical fixed-point geometry with speed, bearing, range, and accessible labels |
-| Ship bases, arcs, guides, and firing overlays | Canonical base pose and geometry, decorated by `ship-bases.svg` |
-| Ship, pilot, upgrade, quick-build, condition, and damage-card fronts | Reviewed manifests rendered as semantic HTML; no generated pseudo-text |
-| Attack and defense dice | Seeded die results rendered with `game-icons.svg` and text equivalents |
-| Shields, charges, Force, locks, stress, ion, disarm, focus, evade, and critical markers | Reducer state rendered with `game-icons.svg`, color, shape, and text |
-| Ship IDs and first-player marker | Player/ship state rendered as text plus non-color patterns |
-| Obstacle collision boundaries | Versioned vector geometry from `obstacle-masks.svg`; raster texture is presentation only |
-| Movement, attack, damage, and destruction effects | Derived animation that can be disabled; never canonical state |
+| [`asteroid-01.png`](static/assets/obstacles/asteroid-01.png) | [`debris-cloud-01.png`](static/assets/obstacles/debris-cloud-01.png) |
+| [`asteroid-02.png`](static/assets/obstacles/asteroid-02.png) | [`debris-cloud-02.png`](static/assets/obstacles/debris-cloud-02.png) |
+| [`asteroid-03.png`](static/assets/obstacles/asteroid-03.png) | [`debris-cloud-03.png`](static/assets/obstacles/debris-cloud-03.png) |
 
-### Required after the teaching duel
+Each obstacle is 418×500.
 
-The broader Second Edition product also needs the following reviewed asset
-families. They are deliberately not fabricated before their rules and content
-manifests exist:
+### Generated maneuver art
 
-- original ship artwork for every enabled ship type across all seven factions;
-- medium, large, and huge base geometry and corresponding arc treatments;
-- turret indicators, reinforce sectors, device templates, bombs, mines,
-  remotes, docking markers, wings, energy, and range 4–5 rulers;
-- gas clouds, electro-chaff clouds, environment obstacles, and scenario
-  objectives;
-- every additional action, status, upgrade-slot, restriction, charge, and
-  condition symbol actually referenced by enabled content;
-- faction-neutral card textures for ship, upgrade, condition, quick-build,
-  scenario, environment, and huge-ship damage cards; and
-- optional sound effects, reduced-motion-safe combat effects, tutorial
-  illustrations, application icons, and social-preview artwork.
+The dial manifest supplies bearing, speed, direction, difficulty, and labels.
+These files are decorative pictures for those semantic choices:
 
-Each family becomes required only with an explicitly versioned content or
-ruleset manifest. “Complete” never means inventing card text, maneuver data,
-points, or official-looking art to fill a visual grid.
+- [`straight.png`](static/assets/maneuvers/straight.png)
+- [`bank-left.png`](static/assets/maneuvers/bank-left.png)
+- [`bank-right.png`](static/assets/maneuvers/bank-right.png)
+- [`turn-left.png`](static/assets/maneuvers/turn-left.png)
+- [`turn-right.png`](static/assets/maneuvers/turn-right.png)
+- [`koiogran.png`](static/assets/maneuvers/koiogran.png)
+- [`stationary.png`](static/assets/maneuvers/stationary.png)
+
+Each maneuver image is 440×440.
+
+### Generated dice and action art
+
+The reducer supplies the result/action identity and accessible name. Generated
+art decorates that state:
+
+| Dice results | Public actions |
+| --- | --- |
+| [`die-blank.png`](static/assets/icons/die-blank.png) | [`action-focus.png`](static/assets/icons/action-focus.png) |
+| [`die-focus.png`](static/assets/icons/die-focus.png) | [`action-evade.png`](static/assets/icons/action-evade.png) |
+| [`die-hit.png`](static/assets/icons/die-hit.png) | [`action-lock.png`](static/assets/icons/action-lock.png) |
+| [`die-critical.png`](static/assets/icons/die-critical.png) | [`action-barrel-roll.png`](static/assets/icons/action-barrel-roll.png) |
+| [`die-evade.png`](static/assets/icons/die-evade.png) | [`action-boost.png`](static/assets/icons/action-boost.png) |
+
+Dice images are 354×354. Action images are 354×400 except the independently
+generated barrel-roll image, which is 354×354.
+
+### Generated token art
+
+- [`token-shield.png`](static/assets/icons/token-shield.png)
+- [`token-force.png`](static/assets/icons/token-force.png)
+- [`token-charge.png`](static/assets/icons/token-charge.png)
+- [`token-stress.png`](static/assets/icons/token-stress.png)
+- [`token-ion.png`](static/assets/icons/token-ion.png)
+- [`token-disarm.png`](static/assets/icons/token-disarm.png)
+- [`token-critical.png`](static/assets/icons/token-critical.png)
+- [`token-first-player.png`](static/assets/icons/token-first-player.png)
+
+Each token image is 312×312. Focus and evade state reuse their matching action
+art with distinct semantic labels where the UI requires a token rather than an
+action.
+
+## Runtime-rendered rules layers
+
+Static generated pictures are deliberately not used for these sources of truth:
+
+| Rules layer | Runtime source of truth |
+| --- | --- |
+| Maneuver-dial faces | Versioned ship-dial entries rendered as accessible controls; generated maneuver art is decorative. |
+| Maneuver templates and range ruler | Canonical fixed-point geometry with visible speed, bearing, range, and text labels. |
+| Ship bases, guides, arcs, bullseye, and firing overlays | Canonical base pose and geometry; `small-base.png` may decorate the base interior. |
+| Ship, pilot, upgrade, condition, and damage-card fronts | Reviewed manifests rendered as semantic HTML; never generated pseudo-text. |
+| Attack and defense dice | Seeded die identities plus text; generated dice art is a redundant visual. |
+| Status markers | Reducer state plus text/non-color treatment; generated token art is a redundant visual. |
+| Obstacle collision boundaries | Versioned deterministic polygons independent of the generated obstacle silhouette. |
+| Movement, attack, damage, and destruction effects | Derived animation that can be disabled and never enters canonical state. |
 
 ## Shared art direction
 
-- Restrained, tactile science-fiction game art.
-- Near-black graphite and midnight navy foundations.
-- Muted cyan and warm amber for navigational information.
-- Muted crimson and burnt orange for damage.
+- Restrained, tactile science-fiction tabletop art.
+- Near-black graphite and midnight-navy foundations.
+- Muted cyan and warm amber for navigation and interaction.
+- Muted crimson and burnt orange for attacks and damage.
+- Strict overhead views for physical components.
+- Strong silhouettes that remain readable when reduced.
 - No baked-in text, numerals, watermarks, logos, faction emblems, copied
   publisher iconography, card frames, or trade dress.
-- Recognizable ship types appear only where the manifest calls for that game
-  piece, using newly generated overhead artwork rather than published art or
-  product photography.
 
 ## Generation prompts
 
-### `starfield.webp`
+The accepted files were generated with the built-in image tool. Multi-icon
+requests produced one source sheet; the accepted sheet was visually reviewed
+and mechanically cropped into the individual PNG files listed above.
+
+### Dice results
+
+```text
+Use case: stylized-concept
+Asset type: browser tabletop game dice-result icon atlas
+Primary request: five original science-fiction dice-result icons arranged in one perfectly even horizontal row: empty result, focused eye, impact burst, critical electrical fracture, defensive evade shield
+Style/medium: premium painted tabletop UI icons, tactile enamel inlay on dark circular tokens, strong simple silhouettes readable at 48 pixels
+Composition/framing: exact 5-column by 1-row atlas, square cells, one centered icon per cell, equal margins and scale, no dividers crossing icons
+Color palette: graphite and midnight navy tiles; muted crimson and burnt orange for attack; muted cyan for defense; off-white highlights
+Constraints: exactly five icons; no text, letters, numerals, logos, faction emblems, copied game glyphs, extra icons, pseudo-text, or watermark; each icon must be visually distinct
+```
+
+### Public actions
+
+```text
+Use case: stylized-concept
+Asset type: browser tabletop game action icon atlas
+Primary request: five original tactical action icons arranged in one perfectly even horizontal row: focused sensor eye, evasive chevrons, target lock reticle, lateral barrel roll, forward boost
+Style/medium: premium painted tabletop UI icons, tactile cyan enamel inlay on dark round tokens, strong simple silhouettes readable at 48 pixels
+Composition/framing: exact 5-column by 1-row atlas, square cells, one centered icon per cell, equal margins and scale
+Color palette: graphite, midnight navy, muted cyan, tiny warm amber active accents
+Constraints: exactly five icons; no text, letters, numerals, logos, faction emblems, copied game glyphs, extra icons, pseudo-text, or watermark
+```
+
+The sheet's fourth icon did not communicate a barrel roll clearly enough, so
+that one file was replaced with this targeted generation:
+
+```text
+Use case: stylized-concept
+Asset type: browser tabletop game action icon
+Primary request: one original lateral barrel-roll action symbol: a small abstract rectangular starfighter-base silhouette in the center, with one bold curved arrow moving left above it and one bold curved arrow moving right below it
+Style/medium: premium painted tabletop UI icon, tactile muted-cyan enamel inlay on a dark circular graphite token, strong simple silhouette readable at 48 pixels
+Composition/framing: square canvas, one centered round token, balanced horizontal motion, generous margin
+Color palette: graphite, midnight navy, muted cyan, tiny warm amber accents
+Constraints: exactly one icon; arrows must clearly communicate sideways repositioning rather than turning or forward flight; no text, letters, numerals, logos, emblems, recognizable spacecraft, official game glyphs, pseudo-text, or watermark
+```
+
+### Status tokens
+
+```text
+Use case: stylized-concept
+Asset type: browser tabletop game status-token icon atlas
+Primary request: eight original tactical status icons in a perfectly even 4-column by 2-row grid, ordered left-to-right: shield, energy charge, lightning charge, stress pulse; ionized atom, disabled weapon, critical fracture, first-player navigation beacon
+Style/medium: premium painted tabletop UI icons, tactile enamel inlay on dark round tokens, strong simple silhouettes readable at 48 pixels
+Composition/framing: exact 4-column by 2-row atlas, square cells, one centered icon per cell, equal margins and scale
+Color palette: graphite and midnight navy with muted cyan, warm amber, muted crimson and off-white accents
+Constraints: exactly eight icons; no text, letters, numerals, logos, faction emblems, copied game glyphs, extra icons, pseudo-text, or watermark
+```
+
+### Maneuvers
+
+```text
+Use case: stylized-concept
+Asset type: browser tabletop game maneuver-symbol atlas
+Primary request: seven original luminous flight-path symbols arranged in a perfectly even 4-column by 2-row grid; top row straight, gentle bank left, gentle bank right, hard turn left; bottom row hard turn right, forward path ending in a U-turn, stationary ring, and the final eighth cell intentionally empty
+Style/medium: premium painted tabletop UI symbols, bold rounded cyan path with a warm amber arrowhead on dark circular instrument tiles, strong silhouette readable at 48 pixels
+Composition/framing: exact 4-column by 2-row atlas, square cells, one centered symbol per occupied cell, equal margins and line weights
+Color palette: graphite, midnight navy, muted cyan, warm amber
+Constraints: exactly seven symbols and one empty lower-right tile; no text, letters, numerals, logos, faction emblems, copied game glyphs, extra arrows, pseudo-text, or watermark
+```
+
+### Obstacles
+
+```text
+Use case: stylized-concept
+Asset type: browser tabletop game obstacle-silhouette atlas
+Primary request: six distinct original space-obstacle silhouettes arranged in a perfectly even 3-column by 2-row grid; top row three irregular asteroid silhouettes, bottom row three dispersed wreckage-cloud silhouettes
+Style/medium: premium painted tabletop token silhouettes with tactile graphite edges and restrained internal cyan rim light, seen exactly from above
+Composition/framing: exact 3-column by 2-row atlas, square cells, one centered complete silhouette per cell, generous equal margins; asteroid contours rounded and rocky, debris contours spiky and dispersed
+Color palette: near-black, graphite, cool gray, faint muted cyan and tiny rust accents
+Constraints: exactly six silhouettes; no text, letters, numerals, ships, recognizable franchise parts, logos, faction emblems, copied official obstacle shapes, extra objects, pseudo-text, or watermark; decorative only, not collision geometry
+```
+
+### Small base
+
+```text
+Use case: stylized-concept
+Asset type: browser tabletop game small ship-base artwork
+Primary request: one original square small-starfighter tabletop base viewed exactly from above, with a recessed center mount, subtle forward guide notches, fine angular paneling, and restrained decorative arc inlays
+Style/medium: premium tactile board-game component, painted graphite metal and screen-printed details
+Composition/framing: square canvas, strict orthographic top-down, one complete square base centered with generous dark margin, symmetrical around its forward axis
+Color palette: graphite, midnight navy, muted cyan, tiny warm amber accents
+Constraints: no ship, text, letters, numerals, logo, faction emblem, copied official base graphics, measurement marks, pseudo-text, or watermark; decorative only, not a rules diagram
+```
+
+### Application icon
+
+```text
+Use case: logo-brand
+Asset type: application icon
+Primary request: an original abstract tactical-flight app icon formed from a compact four-point navigation spark inside a circular targeting instrument
+Style/medium: richly painted game-app icon, tactile enamel and brushed metal, simple strong silhouette
+Composition/framing: centered square icon with softly rounded dark background, generous padding, readable at 32 pixels
+Color palette: midnight navy, graphite, muted cyan, warm amber center
+Constraints: no text, letters, logos, franchise emblems, recognizable spacecraft, official iconography, mockup device, border outside the square, or watermark
+```
+
+### Battlefield background
 
 ```text
 Use case: stylized-concept
@@ -119,7 +232,7 @@ Constraints: tile-friendly edges; no text; no logos; no emblems; no recognizable
 Avoid: bright central nebula, lens flare, dense stars, copyrighted trade dress
 ```
 
-### `maneuver-dial-back.webp`
+### Hidden maneuver dial
 
 ```text
 Use case: stylized-concept
@@ -135,7 +248,7 @@ Constraints: no card shape; no rectangular card frame; no text; no numerals; no 
 Avoid: portrait-card composition, playing card, compass rose with letters, readable pseudo-text
 ```
 
-### `damage-card-back.webp`
+### Damage-card back
 
 ```text
 Use case: stylized-concept
@@ -151,9 +264,9 @@ Constraints: no text; no numerals; no logos; no faction emblems; no recognizable
 Avoid: gore, active explosion, bright white border, mockup photography
 ```
 
-### Ship artwork
+### Ships
 
-Both ships use this shared prompt structure:
+Both ship images used this shared prompt with the file-specific subject below:
 
 ```text
 Use case: stylized-concept
@@ -165,55 +278,32 @@ Constraints: one ship only; no base; no card frame; no text; no logos; no factio
 Avoid: cockpit-level camera, cropped wings, battle scene, laser fire, extra ships
 ```
 
-| File | Subject and art-direction addition |
+| File | Subject addition |
 | --- | --- |
-| `ships/t65-x-wing.webp` | One complete T-65 X-wing, directly overhead with its nose pointing up. Four visibly separated S-foils form a clear X silhouette, each ending in a laser cannon; the narrow fuselage, cockpit, and four engine nozzles remain visible. Use a worn off-white hull, muted red panels, graphite mechanics, pale-cyan highlights, and restrained warm engine glow. Preserve the recognizable ship type without copying an official illustration or miniature photograph. |
-| `ships/tie-ln-fighter.webp` | One complete TIE/ln fighter seen directly above its dorsal side, nose pointing up; the top hatch is visible, the front viewport is not, and the two hexagonal solar panels run vertically at left and right. Use graphite, gunmetal, and cool gray-blue panels; avoid frontal or three-quarter perspective. |
+| `ships/t65-x-wing.webp` | One complete T-65 X-wing directly overhead with its nose pointing up, separated S-foils, narrow fuselage, cockpit, four engine nozzles, worn off-white hull, muted red panels, graphite mechanics, and restrained engine glow; recognizable type without copying an official illustration or miniature photograph. |
+| `ships/tie-ln-fighter.webp` | One complete TIE/ln fighter directly above its dorsal side, nose pointing up, top hatch visible, front viewport hidden, two vertical hexagonal solar panels, graphite and cool gray-blue materials; no frontal or three-quarter perspective. |
 
-### Obstacle textures
+The six obstacle WebP textures were removed when the generated complete
+obstacle illustrations replaced their SVG masks.
 
-Each obstacle prompt requested a directly overhead, uniformly lit, full-bleed,
-opaque square material texture with no outer silhouette or space background. The
-UI clips these textures with `obstacle-masks.svg`; this keeps collision geometry
-precise and makes the same artwork usable at different scales.
+## Processing and acceptance
 
-```text
-Use case: stylized-concept
-Asset type: seamless source texture for a browser tabletop obstacle
-Primary request: an original full-bleed top-down surface texture matching the file-specific material below
-Scene/backdrop: the material fills the entire square; no space background and no isolated object
-Style/medium: detailed hand-painted tabletop miniature texture, realistic but readable at token scale
-Composition/framing: direct orthographic overhead view, even detail distribution, no outer silhouette
-Lighting/mood: restrained overhead relief lighting without a cast shadow
-Constraints: opaque full-bleed texture; no text; no border; no ships; no logos; no faction insignia; no recognizable franchise parts; no bodies; no watermark
-Avoid: transparent background, checkerboard, isolated cutout, explosion, active fire
-```
+- Built-in generated PNG sources were visually inspected before selection.
+- Source sheets were center-cropped into named files without repainting or
+  tracing them; the application icon and base were resized to their delivery
+  dimensions.
+- The generated dial attempt that returned a checkerboard painted into opaque
+  RGB pixels was rejected. The accepted existing generated dial remains.
+- All delivered PNGs are opaque by design. UI backgrounds and canonical
+  geometry provide clipping or contrast where required.
+- Generated icons must always be accompanied by text or accessible labels.
+- Visual review must include the 4K tabletop, both seated orientations, and the
+  private phone surface before an asset becomes gameplay-critical decoration.
 
-| File | Material addition |
-| --- | --- |
-| `obstacles/asteroid-01.webp` | Charcoal basalt plates, impact pits, chipped ridges, and restrained iron-rust seams. |
-| `obstacles/asteroid-02.webp` | Cool-gray laminated stone, long branching fractures, shelves, craters, and steel-blue mineral bands; avoid a rusty palette. |
-| `obstacles/asteroid-03.webp` | Dark porous carbonaceous rock, rounded cavities, dusty regolith, pale inclusions, and warm-gray veins; avoid lava. |
-| `obstacles/debris-cloud-01.webp` | Dense generic wreckage made from bent gunmetal hull plates, torn ribs, fasteners, scorch marks, and frost dust. |
-| `obstacles/debris-cloud-02.webp` | Snapped spars, twisted cable bundles, broken grilles, pipes, shattered dark panels, and fine particulate in graphite, steel blue, and muted copper. |
-| `obstacles/debris-cloud-03.webp` | Hundreds of small angular metal fragments, ceramic shards, rivets, foil insulation, sparse struts, and gray dust in charcoal, dull silver, tiny amber, and faint blue. |
+## Required after the teaching duel
 
-## Processing
-
-The generated PNG sources were visually reviewed, resized to 768×768 where
-needed, and encoded as opaque WebP at quality 84. The SVG files were authored
-as code-native geometry and XML-validated. Generated pixels are decorative;
-game data and deterministic geometry remain the source of truth.
-
-## Review notes
-
-The built-in generator was also asked for transparent asteroid and debris
-cutouts. The returned PNGs had an opaque checkerboard rather than a real alpha
-channel, so those outputs were rejected and are not part of this repository.
-The accepted obstacle art is therefore deliberately full-bleed and opaque; the
-six original paths in `obstacle-masks.svg` supply both the visible clipping
-shape and the collision boundary.
-
-Before shipping these assets, review them in the actual UI at phone, tablet,
-and desktop sizes. Dark textures need a tested contrast overlay beneath text,
-focus rings, arcs, rulers, and status markers.
+Broader content will need newly generated ship art and decorative treatments
+for each explicitly reviewed manifest: additional bases, turrets, devices,
+remotes, docking, huge ships, scenario objectives, environment obstacles,
+cards, sounds, effects, tutorial illustrations, and social-preview artwork.
+No visual family is fabricated before its rules/content boundary exists.
