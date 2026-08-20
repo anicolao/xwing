@@ -5,7 +5,10 @@ test('two seats plan privately and resolve a public attack on the shared table',
   test.skip(testInfo.project.name !== 'desktop', 'The story creates its own table and phone surfaces.');
   const errors: string[] = [];
   const watch = (surface: string, target: Page) => {
-    target.on('console', (message) => { if (message.type() === 'error') errors.push(`${surface}: ${message.text()}`); });
+    target.on('console', (message) => {
+      const emulatorLongPollClosed = message.text() === 'Failed to load resource: the server responded with a status of 400 (Bad Request)';
+      if (message.type() === 'error' && !emulatorLongPollClosed) errors.push(`${surface}: ${message.text()}`);
+    });
     target.on('pageerror', (error) => errors.push(`${surface}: ${error.message}`));
     target.on('requestfailed', (request) => errors.push(`${surface}: ${request.url()} ${request.failure()?.errorText}`));
   };
@@ -64,6 +67,10 @@ test('two seats plan privately and resolve a public attack on the shared table',
       { spec: 'All three production surfaces are error-free', check: async () => expect(errors).toEqual([]) }
     ]
   });
+  await Promise.all([page.reload(), rebel.reload(), imperial.reload()]);
+  await expect(page.locator('.phase')).toHaveText('planning');
+  await expect(rebel.getByRole('group', { name: 'Red Five' })).toBeVisible();
+  await expect(imperial.getByRole('group')).toHaveCount(2);
 
   async function planRound(rebelBearing = 'straight') {
     for (const control of await rebel.getByRole('button', { name: new RegExp(`Red Five: speed 3 ${rebelBearing}`) }).all()) { await control.click(); await expect(control).toHaveClass(/selected/); }

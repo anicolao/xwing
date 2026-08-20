@@ -13,6 +13,7 @@
   let paired = $state(false);
   let ready = $state(false);
   let message = $state('This phone will show only your private maneuver dials.');
+  let busy = $state(false);
   let projection = $state(handProjection(replay([]).state, 'rebel'));
 
   onMount(() => {
@@ -22,23 +23,20 @@
     return unsubscribe;
   });
 
-  async function pair() {
-    try { await claimSeat(room, seat, code); message = `${seat === 'rebel' ? 'Rebel' : 'Imperial'} hand paired. Return attention to the table.`; }
-    catch (error) { message = error instanceof Error ? error.message : 'Pairing failed.'; }
+  async function perform(action: () => Promise<unknown>, success: string, fallback: string) {
+    if (busy) return; busy = true;
+    try { await action(); message = success; }
+    catch (error) { message = error instanceof Error ? error.message : fallback; }
+    finally { busy = false; }
   }
-  async function assign(shipId: string, maneuverId: string) {
-    try { await appendEvent({ type: 'planning/assigned', actor: seat, payload: { shipId, maneuverId } }, room); message = `${shipById(shipId)!.name} dial set. You may revise it until committing.`; }
-    catch (error) { message = error instanceof Error ? error.message : 'Dial could not be set.'; }
-  }
-  async function commit() {
-    try { await appendEvent({ type: 'planning/committed', actor: seat, payload: { seat } }, room); message = 'Maneuvers committed. Return attention to the table.'; }
-    catch (error) { message = error instanceof Error ? error.message : 'Commitment failed.'; }
-  }
+  const pair = () => perform(() => claimSeat(room, seat, code), `${seat === 'rebel' ? 'Rebel' : 'Imperial'} hand paired. Return attention to the table.`, 'Pairing failed.');
+  const assign = (shipId: string, maneuverId: string) => perform(() => appendEvent({ type: 'planning/assigned', actor: seat, payload: { shipId, maneuverId } }, room), `${shipById(shipId)!.name} dial set. You may revise it until committing.`, 'Dial could not be set.');
+  const commit = () => perform(() => appendEvent({ type: 'planning/committed', actor: seat, payload: { seat } }, room), 'Maneuvers committed. Return attention to the table.', 'Commitment failed.');
   const allAssigned = $derived(projection.ships.length > 0 && projection.ships.every((ship) => ship.maneuver));
 </script>
 
 <svelte:head><title>{seat === 'rebel' ? 'Rebel' : 'Imperial'} private hand</title></svelte:head>
-<main data-status={ready ? 'ready' : 'loading'} data-e2e-layout class:imperial={seat === 'imperial'} style={`--starfield:url('${assets}/assets/starfield.webp')`}>
+<main class:busy aria-busy={busy} data-status={ready ? 'ready' : 'loading'} data-e2e-layout class:imperial={seat === 'imperial'} style={`--starfield:url('${assets}/assets/starfield.webp')`}>
   <header><span class="mark"></span><div><p>{seat === 'rebel' ? 'REBEL' : 'IMPERIAL'} PRIVATE HAND</p><small>ROOM {room}</small></div><span class:online={paired} class="connection">{paired ? 'LINKED' : 'OFFLINE'}</span></header>
   {#if !paired}
     <section class="pair">
@@ -79,6 +77,7 @@
 
 <style>
   main { position:relative; display:grid; grid-template-rows:auto 1fr auto; min-height:100svh; padding:20px; overflow:hidden; background:linear-gradient(#061322dd,#061322f5),var(--starfield) center/cover; }
+  main.busy button { pointer-events:none; }
   header { display:flex; align-items:center; gap:12px; padding-bottom:16px; border-bottom:1px solid #edb54b55; } header p, header small { margin:0; } header p { font:700 .82rem 'Space Mono'; letter-spacing:.08em; } header small { color:#91aab4; }
   .mark { width:24px; height:24px; border:3px solid #efbb58; transform:rotate(45deg); } .imperial .mark { border-radius:50%; border-color:#6fd4e8; }
   .connection { margin-left:auto; color:#ef8a72; font-size:.72rem; font-weight:700; letter-spacing:.08em; } .connection.online { color:#72d39b; }

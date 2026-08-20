@@ -21,6 +21,7 @@
   let rebelUrl = $state('');
   let imperialUrl = $state('');
   let confirmConcession = $state<Seat | null>(null);
+  let busy = $state(false);
 
   onMount(() => {
     const route = `${location.origin}${base}/hand?room=${ROOM_ID}`;
@@ -31,8 +32,10 @@
   });
 
   async function perform(action: () => void | Promise<unknown>, message: string) {
+    if (busy) return; busy = true;
     try { await action(); notice = message; }
     catch (error) { notice = error instanceof Error ? error.message : 'Action could not be completed.'; }
+    finally { busy = false; }
   }
 
   function openRoom() { perform(() => createRoom(), 'Room FLIGHT7 opened. Pair each phone to its own seat.'); }
@@ -84,7 +87,7 @@
 <svelte:head><title>X-Wing shared tabletop</title></svelte:head>
 <svelte:window onkeydown={keyView} />
 
-<main data-status={ready ? 'ready' : 'loading'} data-e2e-layout data-view={`${rotation}:${viewScale}:${panX}:${panY}`} style={`--starfield:url('${assets}/assets/starfield.webp');--view-rotation:${rotation}deg;--view-scale:${viewScale};--pan-x:${panX}px;--pan-y:${panY}px`}>
+<main class:busy aria-busy={busy} data-status={ready ? 'ready' : 'loading'} data-e2e-layout data-view={`${rotation}:${viewScale}:${panX}:${panY}`} style={`--starfield:url('${assets}/assets/starfield.webp');--view-rotation:${rotation}deg;--view-scale:${viewScale};--pan-x:${panX}px;--pan-y:${panY}px`}>
   <div class="stars" aria-hidden="true"></div>
 
   <section class="edge far" aria-label="Imperial player edge">
@@ -200,6 +203,7 @@
 
 <style>
   main { position:relative; display:grid; grid-template:"far far far" minmax(86px,11vh) "left board right" minmax(0,1fr) "near near near" minmax(86px,11vh)/minmax(180px,15vw) minmax(0,1fr) minmax(190px,15vw); width:100vw; height:100vh; overflow:hidden; isolation:isolate; }
+  main.busy button { pointer-events:none; }
   .stars { position:absolute; z-index:-2; inset:0; background:linear-gradient(#020914cc,#020914e8),var(--starfield) center/cover; }
   .edge { z-index:8; display:flex; align-items:center; justify-content:center; gap:clamp(12px,2vw,50px); padding:10px 18%; background:linear-gradient(90deg,#07111fee,#102335ee,#07111fee); border-color:#5ebcd055; }
   .far { grid-area:far; border-bottom:1px solid; transform:rotate(180deg); } .near { grid-area:near; border-top:1px solid; }
