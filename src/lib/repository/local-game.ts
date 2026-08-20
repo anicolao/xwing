@@ -10,7 +10,6 @@ import {
   connectFirestoreEmulator,
   doc,
   getDoc,
-  getDocs,
   initializeFirestore,
   onSnapshot,
   orderBy,
@@ -20,6 +19,15 @@ import {
   updateDoc,
   type Firestore
 } from 'firebase/firestore';
+import {
+  collection as liteCollection,
+  connectFirestoreEmulator as connectLiteFirestoreEmulator,
+  getDocs as getLiteDocs,
+  getFirestore as getLiteFirestore,
+  orderBy as liteOrderBy,
+  query as liteQuery,
+  type Firestore as LiteFirestore
+} from 'firebase/firestore/lite';
 
 const key = (roomId: string) => `xwing:room:${roomId}:events`;
 const channel = (roomId: string) => `xwing:room:${roomId}:changed`;
@@ -54,7 +62,7 @@ function readLocal(roomId = ROOM_ID): GameEvent[] {
   }
 }
 
-let remote: Promise<{ auth: Auth; db: Firestore }> | undefined;
+let remote: Promise<{ auth: Auth; db: Firestore; readDb: LiteFirestore }> | undefined;
 function remoteClient() {
   remote ??= (async () => {
     const app = getApps().length
@@ -66,19 +74,23 @@ function remoteClient() {
         });
     const auth = getAuth(app);
     const db = initializeFirestore(app, { experimentalForceLongPolling: true });
+    const readDb = getLiteFirestore(app);
     if (env.PUBLIC_FIREBASE_EMULATOR === 'true') {
       connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
       connectFirestoreEmulator(db, '127.0.0.1', 8080);
+      connectLiteFirestoreEmulator(readDb, '127.0.0.1', 8080);
     }
     if (!auth.currentUser) await signInAnonymously(auth);
-    return { auth, db };
+    return { auth, db, readDb };
   })();
   return remote;
 }
 
 async function readRemote(roomId: string) {
-  const { db } = await remoteClient();
-  const snapshot = await getDocs(query(collection(db, 'games', roomId, 'events'), orderBy('sequence')));
+  const { readDb } = await remoteClient();
+  const snapshot = await getLiteDocs(
+    liteQuery(liteCollection(readDb, 'games', roomId, 'events'), liteOrderBy('sequence'))
+  );
   return snapshot.docs.map((entry) => entry.data() as GameEvent);
 }
 
@@ -111,6 +123,7 @@ export async function appendEvent(event: EventInput, roomId = ROOM_ID): Promise<
     transaction.set(doc(db, 'games', roomId, 'events', documentId), serialized);
     transaction.update(roomReference, { revision: complete.sequence, updatedAt: Date.now() });
   });
+  window.dispatchEvent(new CustomEvent(channel(roomId)));
   return complete;
 }
 
@@ -130,44 +143,48 @@ export function subscribeToRoom(roomId: string, listener: (events: GameEvent[]) 
   }
   let stopped = false;
   let unsubscribe = () => {};
-  let poll: ReturnType<typeof setInterval> | undefined;
+  let poll: ReturnType<typeof setInterval>;
   let reading = false;
+  let pending = false;
   const update = async () => {
-    if (stopped || reading) return;
+    if (stopped) return;
+    if (reading) {
+      pending = true;
+      return;
+    }
     reading = true;
     try {
       const events = await readRemote(roomId);
       if (!stopped) listener(events);
     } catch {
-      // A failed realtime channel starts this same read on a bounded polling interval.
+      // A later poll retries transient transport and permission races.
     } finally {
       reading = false;
+      if (pending) {
+        pending = false;
+        void update();
+      }
     }
   };
-  const fallBackToPolling = () => {
-    if (poll || stopped) return;
-    void update();
-    poll = setInterval(() => void update(), 1_000);
-  };
+  const changed = () => void update();
+  window.addEventListener(channel(roomId), changed);
+  void update();
+  poll = setInterval(() => void update(), 1_000);
   void remoteClient().then(({ db }) => {
     if (stopped) return;
-    void update();
     unsubscribe = onSnapshot(
       query(collection(db, 'games', roomId, 'events'), orderBy('sequence')),
-      (snapshot) => {
-        if (poll) {
-          clearInterval(poll);
-          poll = undefined;
-        }
-        listener(snapshot.docs.map((entry) => entry.data() as GameEvent));
-      },
-      fallBackToPolling
+      (snapshot) => listener(snapshot.docs.map((entry) => entry.data() as GameEvent)),
+      () => {
+        // The Lite polling path remains authoritative if Watch is unavailable.
+      }
     );
   });
   return () => {
     stopped = true;
     unsubscribe();
-    if (poll) clearInterval(poll);
+    window.removeEventListener(channel(roomId), changed);
+    clearInterval(poll);
   };
 }
 
