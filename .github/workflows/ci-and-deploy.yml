@@ -52,10 +52,26 @@ jobs:
           else
             echo "base=/xwing" >> "$GITHUB_OUTPUT"
           fi
+      - name: Require shared production transport
+        shell: bash
+        env:
+          PUBLIC_FIREBASE_API_KEY: ${{ vars.PUBLIC_FIREBASE_API_KEY }}
+          PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.PUBLIC_FIREBASE_PROJECT_ID }}
+        run: |
+          if [[ -z "$PUBLIC_FIREBASE_API_KEY" ||
+                -z "$PUBLIC_FIREBASE_AUTH_DOMAIN" ||
+                -z "$PUBLIC_FIREBASE_PROJECT_ID" ]]; then
+            echo "Production Firebase repository variables are required for multi-device play." >&2
+            exit 1
+          fi
       - name: Build deployable static client
         run: nix develop --command bun run build
         env:
           PUBLIC_BASE_PATH: ${{ steps.verified-build.outputs.base }}
+          PUBLIC_FIREBASE_API_KEY: ${{ vars.PUBLIC_FIREBASE_API_KEY }}
+          PUBLIC_FIREBASE_AUTH_DOMAIN: ${{ vars.PUBLIC_FIREBASE_AUTH_DOMAIN }}
+          PUBLIC_FIREBASE_PROJECT_ID: ${{ vars.PUBLIC_FIREBASE_PROJECT_ID }}
           VITE_GIT_HASH: ${{ github.event.pull_request.head.sha || github.sha }}
       - uses: actions/upload-artifact@v6
         with:

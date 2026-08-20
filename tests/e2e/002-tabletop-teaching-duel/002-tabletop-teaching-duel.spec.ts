@@ -36,24 +36,36 @@ test('two seats plan privately and resolve a public attack on the shared table',
   await page.goto('/tt');
   await expect(page.getByRole('heading', { name: 'PAIR BOTH PRIVATE HANDS' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Create tabletop room' })).toHaveCount(0);
-  await expect(page.getByRole('img', { name: 'Rebel phone pairing code' })).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Imperial phone pairing code' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Rebel phone QR code' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Imperial phone QR code' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Rebel phone QR code' })).toHaveAttribute(
+    'data-qr-value',
+    /\/hand\?room=FLIGHT7&seat=rebel$/
+  );
+  await expect(page.getByRole('img', { name: 'Imperial phone QR code' })).toHaveAttribute(
+    'data-qr-value',
+    /\/hand\?room=FLIGHT7&seat=imperial$/
+  );
   await page.reload();
   await expect(page.getByRole('heading', { name: 'PAIR BOTH PRIVATE HANDS' })).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Rebel phone pairing code' })).toBeVisible();
-  await expect(page.getByRole('img', { name: 'Imperial phone pairing code' })).toBeVisible();
-  await rebel.goto('/hand?room=FLIGHT7&seat=rebel&code=RED-5&token=e2e-rebel-claim-capability');
-  await imperial.goto('/hand?room=FLIGHT7&seat=imperial&code=ONYX-2&token=e2e-imperial-claim-capability');
-  await rebel.getByRole('button', { name: 'Claim Rebel seat' }).click();
-  await expect(rebel.getByText('LINKED', { exact: true })).toBeVisible();
-  await imperial.getByRole('button', { name: 'Claim Imperial seat' }).click();
-  await expect(imperial.getByText('LINKED', { exact: true })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Rebel phone QR code' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Imperial phone QR code' })).toBeVisible();
+  await rebel.goto('/hand?room=FLIGHT7&seat=rebel');
+  await imperial.goto('/hand?room=FLIGHT7&seat=imperial');
+  await Promise.all([
+    rebel.getByRole('button', { name: 'Claim Rebel seat' }).click(),
+    imperial.getByRole('button', { name: 'Claim Imperial seat' }).click()
+  ]);
+  await Promise.all([
+    expect(rebel.getByText('LINKED', { exact: true })).toBeVisible(),
+    expect(imperial.getByText('LINKED', { exact: true })).toBeVisible()
+  ]);
   const thiefContext = await browser.newContext({ viewport: { width: 393, height: 852 } });
   const thief = await thiefContext.newPage();
-  await thief.goto('/hand?room=FLIGHT7&seat=rebel&code=RED-5&token=e2e-rebel-claim-capability');
+  await thief.goto('/hand?room=FLIGHT7&seat=rebel');
   await thief.getByRole('button', { name: 'Claim Rebel seat' }).click();
   await expect(thief.getByText('LINKED', { exact: true })).toHaveCount(0);
-  await expect(thief.getByRole('status')).toContainText(/permission|claimed|expired/i);
+  await expect(thief.getByRole('status')).toContainText(/permission|claimed/i);
   await thiefContext.close();
   const surfaces = [
     { id: 'table-4k', label: 'Shared 4K tabletop', page },

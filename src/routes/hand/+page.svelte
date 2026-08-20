@@ -5,19 +5,10 @@
   import { handProjection } from '$lib/game/selectors';
   import { replay } from '$lib/game/reducer';
   import { shipById, type Seat } from '$lib/manifests/teaching-duel';
-  import {
-    appendEvent,
-    canAccessRoom,
-    claimSeat,
-    pairingCode,
-    ROOM_ID,
-    subscribeToRoom
-  } from '$lib/repository/local-game';
+  import { appendEvent, canAccessRoom, claimSeat, ROOM_ID, subscribeToRoom } from '$lib/repository/local-game';
 
   let seat = $state<Seat>('rebel');
   let room = $state(ROOM_ID);
-  let code = $state('');
-  let token = $state('');
   let paired = $state(false);
   let ready = $state(false);
   let message = $state('This phone will show only your private maneuver dials.');
@@ -28,8 +19,6 @@
     const query = new URLSearchParams(location.search);
     seat = query.get('seat') === 'imperial' ? 'imperial' : 'rebel';
     room = query.get('room') ?? ROOM_ID;
-    code = query.get('code') ?? pairingCode[seat];
-    token = query.get('token') ?? '';
     let unsubscribe = () => {};
     const connect = () => {
       unsubscribe();
@@ -64,7 +53,7 @@
   const pair = () =>
     perform(
       async () => {
-        await claimSeat(room, seat, code, token);
+        await claimSeat(room, seat);
         reconnect();
       },
       `${seat === 'rebel' ? 'Rebel' : 'Imperial'} hand paired. Return attention to the table.`,
@@ -107,7 +96,7 @@
       <img src={`${assets}/assets/maneuver-dial-back.webp`} alt="Maneuver dial" />
       <p class="eyebrow">Seat enrollment</p>
       <h1>Pair this hand</h1>
-      <label for="pair-code">Pairing code</label><input id="pair-code" bind:value={code} autocomplete="one-time-code" />
+      <p>Confirm that this is the {seat === 'rebel' ? 'Rebel' : 'Imperial'} QR code shown on the tabletop.</p>
       <button onclick={pair}>Claim {seat === 'rebel' ? 'Rebel' : 'Imperial'} seat</button>
     </section>
   {:else}
@@ -256,24 +245,6 @@
   h1 {
     margin: 0 0 16px;
     font-size: 2rem;
-  }
-  label {
-    justify-self: start;
-    width: min(100%, 300px);
-    margin: 12px auto 5px;
-    color: #a8c0c8;
-  }
-  input {
-    width: min(100%, 300px);
-    min-height: 52px;
-    padding: 8px 14px;
-    border: 1px solid #6fd4e8;
-    border-radius: 6px;
-    background: #0d2233;
-    text-align: center;
-    font: 700 1.2rem 'Space Mono';
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
   }
   button {
     width: min(100%, 300px);

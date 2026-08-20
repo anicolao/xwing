@@ -142,13 +142,13 @@ it complete.
 
 ### 002 — Create, join, and replay a room
 
-- Loading `/tt` creates one private room without a lobby action and displays distinct, short-lived pairing
-  codes for the two opposing seats.
+- Loading `/tt` creates one private room without a lobby action and displays
+  distinct, compact QR links for the two opposing seats.
 - Two anonymous phone contexts pair to one seat each; the table shows stable
   seats, ruleset/manifests, readiness, and connection state through the real
   Firebase emulators.
-- A code cannot claim both seats, a claimed seat cannot be stolen, and explicit
-  re-pairing invalidates the old seat session.
+- One anonymous identity cannot claim both seats, and a claimed seat cannot be
+  stolen by another identity.
 - Duplicate append is idempotent; reload replays the same immutable prefix.
 - A nonmember cannot read or append, and neither member can mutate or delete an
   accepted event.

@@ -17,7 +17,7 @@ import {
   query,
   runTransaction,
   setDoc,
-  writeBatch,
+  updateDoc,
   type Firestore
 } from 'firebase/firestore';
 
@@ -27,12 +27,6 @@ const useFirestore = browser && (env.PUBLIC_FIREBASE_EMULATOR === 'true' || Bool
 
 export const ROOM_ID = 'FLIGHT7';
 const tableRoomKey = 'xwing:table-room';
-export const pairingCode: Record<Seat, string> = { rebel: 'RED-5', imperial: 'ONYX-2' };
-export interface PairingCredential {
-  code: string;
-  token: string;
-}
-export type PairingCredentials = Record<Seat, PairingCredential>;
 type EventInput = GameEvent extends infer Event
   ? Event extends GameEvent
     ? Omit<Event, 'id' | 'sequence'>
@@ -46,7 +40,7 @@ export function tableRoomId(): string {
   const roomId =
     env.PUBLIC_FIREBASE_EMULATOR === 'true'
       ? ROOM_ID
-      : `FLIGHT-${crypto.randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase()}`;
+      : `FLIGHT-${crypto.randomUUID().replaceAll('-', '').slice(0, 16).toUpperCase()}`;
   sessionStorage.setItem(tableRoomKey, roomId);
   return roomId;
 }
@@ -82,17 +76,6 @@ function remoteClient() {
   return remote;
 }
 
-function createPairingCredentials(): PairingCredentials {
-  const token = (seat: Seat) =>
-    env.PUBLIC_FIREBASE_EMULATOR === 'true'
-      ? `e2e-${seat}-claim-capability`
-      : `${seat}-${crypto.randomUUID()}-${crypto.randomUUID()}`;
-  return {
-    rebel: { code: pairingCode.rebel, token: token('rebel') },
-    imperial: { code: pairingCode.imperial, token: token('imperial') }
-  };
-}
-
 async function readRemote(roomId: string) {
   const { db } = await remoteClient();
   const snapshot = await getDocs(query(collection(db, 'games', roomId, 'events'), orderBy('sequence')));
@@ -106,7 +89,8 @@ export async function readEvents(roomId = ROOM_ID): Promise<GameEvent[]> {
 export async function appendEvent(event: EventInput, roomId = ROOM_ID): Promise<GameEvent> {
   if (!useFirestore) {
     const events = readLocal(roomId);
-    const complete = { ...event, id: `${roomId}-${events.length + 1}`, sequence: events.length + 1 } as GameEvent;
+    const sequence = events.length + 1;
+    const complete = { ...event, id: `${roomId}-${sequence}-${event.actor}`, sequence } as GameEvent;
     const projected = replay([...events, complete]);
     if (projected.diagnostics.length) throw new Error(projected.diagnostics.at(-1)!.message);
     localStorage.setItem(key(roomId), JSON.stringify([...events, complete]));
@@ -115,7 +99,8 @@ export async function appendEvent(event: EventInput, roomId = ROOM_ID): Promise<
   }
   const { db } = await remoteClient();
   const events = await readRemote(roomId);
-  const complete = { ...event, id: `${roomId}-${events.length + 1}`, sequence: events.length + 1 } as GameEvent;
+  const sequence = events.length + 1;
+  const complete = { ...event, id: `${roomId}-${sequence}-${event.actor}`, sequence } as GameEvent;
   const projected = replay([...events, complete]);
   if (projected.diagnostics.length) throw new Error(projected.diagnostics.at(-1)!.message);
   const serialized = JSON.parse(JSON.stringify(complete)) as GameEvent;
@@ -124,7 +109,7 @@ export async function appendEvent(event: EventInput, roomId = ROOM_ID): Promise<
     const room = await transaction.get(roomReference);
     if (!room.exists() || room.data().revision !== events.length)
       throw new Error('Room changed while this action was being accepted. Retry it.');
-    transaction.set(doc(db, 'games', roomId, 'events', String(complete.sequence).padStart(8, '0')), serialized);
+    transaction.set(doc(db, 'games', roomId, 'events', complete.id), serialized);
     transaction.update(roomReference, { revision: complete.sequence, updatedAt: Date.now() });
   });
   return complete;
@@ -160,16 +145,15 @@ export function subscribeToRoom(roomId: string, listener: (events: GameEvent[]) 
   };
 }
 
-export async function createRoom(roomId = ROOM_ID): Promise<PairingCredentials> {
-  const credentials = createPairingCredentials();
-  if (!browser) return credentials;
+export async function createRoom(roomId = ROOM_ID): Promise<void> {
+  if (!browser) return;
   if (!useFirestore) {
     localStorage.removeItem(key(roomId));
     await appendEvent(
       { type: 'game/created', actor: 'table', payload: { gameId: roomId, seed: 0x5857494e, config: GAME_CONFIG } },
       roomId
     );
-    return credentials;
+    return;
   }
   const { auth, db } = await remoteClient();
   await setDoc(doc(db, 'games', roomId), {
@@ -177,43 +161,51 @@ export async function createRoom(roomId = ROOM_ID): Promise<PairingCredentials> 
     tableUid: auth.currentUser!.uid,
     rebelUid: null,
     imperialUid: null,
-    pairingEpoch: 1,
     createdAt: Date.now(),
     updatedAt: Date.now()
   });
-  const claims = writeBatch(db);
-  for (const seat of ['rebel', 'imperial'] as const) {
-    claims.set(doc(db, 'games', roomId, 'claims', credentials[seat].token), {
-      seat,
-      code: credentials[seat].code,
-      expiresAt: Date.now() + 10 * 60 * 1_000,
-      used: false
-    });
-  }
-  await claims.commit();
   await appendEvent(
     { type: 'game/created', actor: 'table', payload: { gameId: roomId, seed: 0x5857494e, config: GAME_CONFIG } },
     roomId
   );
-  return credentials;
 }
 
-export async function claimSeat(roomId: string, seat: Seat, code: string, token: string) {
-  if (code.toUpperCase() !== pairingCode[seat]) throw new Error('Pairing code does not match this seat.');
+export async function claimSeat(roomId: string, seat: Seat) {
   if (useFirestore) {
     const { auth, db } = await remoteClient();
-    const claim = doc(db, 'games', roomId, 'claims', token);
-    const room = doc(db, 'games', roomId);
-    const enrollment = writeBatch(db);
-    enrollment.update(room, {
-      [`${seat}Uid`]: auth.currentUser!.uid,
-      lastClaimToken: token,
-      updatedAt: Date.now()
-    });
-    enrollment.update(claim, { used: true, claimedBy: auth.currentUser!.uid });
-    await enrollment.commit();
+    const roomReference = doc(db, 'games', roomId);
+    try {
+      await updateDoc(roomReference, {
+        [`${seat}Uid`]: auth.currentUser!.uid,
+        updatedAt: Date.now()
+      });
+    } catch (claimError) {
+      try {
+        const room = await getDoc(roomReference);
+        if (!room.exists()) throw new Error('This tabletop room does not exist.');
+        if (room.data()[`${seat}Uid`] !== auth.currentUser!.uid) throw new Error('That seat has already been claimed.');
+      } catch (readError) {
+        if (readError instanceof Error && readError.message.includes('already been claimed')) throw readError;
+        throw new Error('That seat has already been claimed or the tabletop room is unavailable.', {
+          cause: claimError
+        });
+      }
+    }
+  } else if (!readLocal(roomId).some((event) => event.type === 'game/created')) {
+    throw new Error(
+      'This deployment has no shared Firebase room. Ask the table to reload after Firebase is configured.'
+    );
   }
-  await appendEvent({ type: 'player/joined', actor: seat, payload: { seat } }, roomId);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      await appendEvent({ type: 'player/joined', actor: seat, payload: { seat } }, roomId);
+      return;
+    } catch (error) {
+      const current = replay(await readEvents(roomId)).state;
+      if (current.seats[seat].joined) return;
+      if (attempt) throw error;
+    }
+  }
 }
 
 export async function canAccessRoom(roomId: string) {

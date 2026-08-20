@@ -148,8 +148,9 @@ seat. Firestore Rules enforce event-type permissions by identity role; the
 reducer independently enforces the current phase, timing window, and acting
 seat.
 
-Pairing links contain an unguessable, short-lived capability for exactly one
-seat and are invalid after a successful claim or explicit re-pair. They are a
+Pairing links contain only a high-entropy room ID and exactly one seat. Scanning
+the tabletop-displayed link is the proof of presence; the first anonymous
+device to confirm the link atomically claims the unoccupied seat. This is a
 device-enrollment mechanism, not a promise of cryptographic gameplay secrecy.
 The table projects public state; each phone projects only connection status,
 its own unrevealed dials, and its private pending choices. Projection selectors
@@ -284,7 +285,7 @@ update state.
   coverage rather than the intended game UI.
 - [x] Define table-created pairing with two seat QR codes, single-seat claims,
   and visible connection state.
-- [x] Add single-use, short-lived seat claims enforced by Firestore Rules.
+- [x] Add first-device seat claims enforced by Firestore Rules.
 - [ ] Add explicit unpair/re-pair after the fixed teaching duel begins.
 - [x] Add a Playwright story with one 3840x2160 table surface and two 393x852
   phone surfaces.
@@ -321,7 +322,7 @@ by tests. No phone is required for this public interaction.
 
 - Add Firebase configuration, anonymous authentication, local emulators, and
   Firestore Security Rules.
-- Create a private room from the table, pair two seat phones with scoped tokens,
+- Create a private room from the table, pair two seat phones with compact QR links,
   and record seat claims in the immutable versioned event stream.
 - Implement idempotent append, live subscription, cache prefix, reconnect,
   conflict diagnostics, and reducer replay.

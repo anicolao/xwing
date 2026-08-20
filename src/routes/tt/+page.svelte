@@ -12,7 +12,6 @@
     appendEvent,
     canAccessRoom,
     createRoom,
-    pairingCode,
     ROOM_ID,
     subscribeToRoom,
     tableRoomId
@@ -47,7 +46,7 @@
     reconnect = connect;
     void canAccessRoom(room).then((access) => {
       if (access) {
-        restorePairingLinks();
+        setPairingLinks();
         connect();
       } else void openRoom();
     });
@@ -67,28 +66,17 @@
     }
   }
 
-  function setPairingLinks(credentials: Record<Seat, { code: string; token: string }>) {
+  function setPairingLinks() {
     const route = `${location.origin}${base}/hand?room=${room}`;
-    rebelUrl = `${route}&seat=rebel&code=${credentials.rebel.code}&token=${encodeURIComponent(credentials.rebel.token)}`;
-    imperialUrl = `${route}&seat=imperial&code=${credentials.imperial.code}&token=${encodeURIComponent(credentials.imperial.token)}`;
-  }
-  function restorePairingLinks() {
-    const storageKey = `xwing:table:${room}:pairing`;
-    const saved = sessionStorage.getItem(storageKey);
-    if (!saved) return;
-    try {
-      setPairingLinks(JSON.parse(saved));
-    } catch {
-      sessionStorage.removeItem(storageKey);
-    }
+    rebelUrl = `${route}&seat=rebel`;
+    imperialUrl = `${route}&seat=imperial`;
   }
   function openRoom() {
     return perform(async () => {
-      const credentials = await createRoom(room);
-      sessionStorage.setItem(`xwing:table:${room}:pairing`, JSON.stringify(credentials));
-      setPairingLinks(credentials);
+      await createRoom(room);
+      setPairingLinks();
       reconnect();
-    }, `Room ${room} opened. Pair each phone to its own seat. Pairing links expire in ten minutes.`);
+    }, `Room ${room} opened. Scan each seat's QR code with its phone.`);
   }
   function readySeat(seat: Seat) {
     perform(
@@ -266,8 +254,8 @@
     </div>
     {#if game.phase === 'lobby' && game.gameId !== 'uncreated'}
       <div class="pair-card">
-        <QrCode value={imperialUrl} label="Imperial phone pairing code" />
-        <p><b>{pairingCode.imperial}</b><small>Imperial private hand</small></p>
+        <QrCode value={imperialUrl} label="Imperial phone QR code" />
+        <p><b>IMPERIAL</b><small>Scan to claim this private hand</small></p>
       </div>
       {#if game.seats.imperial.joined}<button onclick={() => readySeat('imperial')} disabled={game.seats.imperial.ready}
           >{game.seats.imperial.ready ? 'Squad ready' : 'Ready Imperial squad'}</button
@@ -436,8 +424,8 @@
     </div>
     {#if game.phase === 'lobby' && game.gameId !== 'uncreated'}
       <div class="pair-card">
-        <QrCode value={rebelUrl} label="Rebel phone pairing code" />
-        <p><b>{pairingCode.rebel}</b><small>Rebel private hand</small></p>
+        <QrCode value={rebelUrl} label="Rebel phone QR code" />
+        <p><b>REBEL</b><small>Scan to claim this private hand</small></p>
       </div>
       {#if game.seats.rebel.joined}<button onclick={() => readySeat('rebel')} disabled={game.seats.rebel.ready}
           >{game.seats.rebel.ready ? 'Squad ready' : 'Ready Rebel squad'}</button
