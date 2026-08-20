@@ -44,6 +44,15 @@ export const teachingDuel = {
   ],
   reviewStatus: 'reviewed-for-fixed-slice',
   playArea: { width: 91_440, height: 91_440 }, baseSize: 4_000, rangeUnit: 10_000,
-  obstacleAssets: ['obstacles/asteroid-01.png', 'obstacles/asteroid-02.png', 'obstacles/asteroid-03.png', 'obstacles/debris-cloud-01.png', 'obstacles/debris-cloud-02.png', 'obstacles/debris-cloud-03.png'], ships
+  obstacleAssets: ['obstacles/asteroid-01.png', 'obstacles/asteroid-02.png', 'obstacles/asteroid-03.png', 'obstacles/debris-cloud-01.png', 'obstacles/debris-cloud-02.png', 'obstacles/debris-cloud-03.png'],
+  ships,
+  obstacleGeometry: [
+    { id: 'asteroid-01', type: 'asteroid', x: 18_288, y: 26_518, radius: 4_600 },
+    { id: 'asteroid-02', type: 'asteroid', x: 39_319, y: 17_374, radius: 4_800 },
+    { id: 'asteroid-03', type: 'asteroid', x: 63_094, y: 32_004, radius: 5_000 },
+    { id: 'debris-01', type: 'debris', x: 26_518, y: 58_522, radius: 4_800 },
+    { id: 'debris-02', type: 'debris', x: 53_035, y: 68_580, radius: 4_900 },
+    { id: 'debris-03', type: 'debris', x: 71_323, y: 53_035, radius: 4_700 }
+  ]
 } as const;
 export const shipById = (id: string) => ships.find((ship) => ship.id === id);

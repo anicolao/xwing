@@ -1,18 +1,19 @@
-import { containsPose, executeManeuver, isInFrontArc, overlaps, rangeBetween } from '$lib/geometry';
-import { shipById, ships, type Seat } from '$lib/manifests/teaching-duel';
+import { containsPose, distance, executeManeuver, isInFrontArc, overlaps, rangeBetween, rollbackOverlap, segmentIntersectsCircle } from '$lib/geometry';
+import { shipById, ships, teachingDuel, type Seat } from '$lib/manifests/teaching-duel';
 import type { Diagnostic, GameEvent, GameState, ShipState } from './model';
 import { rollAttack, rollDefense } from './prng';
+import { createDamageDeck, damageDefinition } from '$lib/manifests/damage-deck';
 
 const initialShip = (id: string): ShipState => {
   const manifest = shipById(id)!;
   const pose = id === 'red-five' ? { x: 45_720, y: 80_000, angle: 0 } : id === 'onyx-one' ? { x: 36_000, y: 11_440, angle: 180_000 } : { x: 55_440, y: 11_440, angle: 180_000 };
-  return { id, seat: manifest.seat, pose, hull: manifest.hull, shields: manifest.shields, force: manifest.force ?? 0, stress: 0, focus: 0, evade: 0, damage: [], revealed: false, activated: false, engaged: false, destroyed: false };
+  return { id, seat: manifest.seat, pose, hull: manifest.hull, shields: manifest.shields, force: manifest.force ?? 0, stress: 0, focus: 0, evade: 0, damage: [], revealed: false, activated: false, engaged: false, skipAction: false, destroyed: false };
 };
 
 export const createInitialState = (gameId = 'uncreated', seed = 0x5857494e): GameState => ({
   gameId, revision: 0, phase: 'lobby', round: 0, seed,
   seats: { rebel: { joined: false, ready: false, committed: false }, imperial: { joined: false, ready: false, committed: false } },
-  ships: Object.fromEntries(ships.map((ship) => [ship.id, initialShip(ship.id)])), pending: null, log: []
+  ships: Object.fromEntries(ships.map((ship) => [ship.id, initialShip(ship.id)])), damageDeck: createDamageDeck(seed), damageCursor: 0, pending: null, log: []
 });
 
 const activationOrder = (state: GameState) => ships.filter((ship) => !state.ships[ship.id]!.activated && !state.ships[ship.id]!.destroyed).sort((a, b) => a.initiative - b.initiative || a.id.localeCompare(b.id));
@@ -43,8 +44,15 @@ function resolveDamage(state: GameState) {
   defender.shields -= shieldLoss; remaining -= shieldLoss;
   for (let index = 0; index < remaining; index += 1) {
     const faceup = state.attack.attack.includes('critical') && index === remaining - 1;
+    const instanceId = state.damageDeck[state.damageCursor++] ?? `exhausted-${state.damageCursor}`;
+    const definition = damageDefinition(instanceId);
     defender.hull -= 1;
-    defender.damage.push({ id: `damage-${state.round}-${defender.id}-${defender.damage.length + 1}`, faceup, title: faceup ? 'Structural Damage' : 'Hull damage' });
+    defender.damage.push({ id: instanceId, faceup, title: faceup ? definition?.title ?? 'Critical damage' : 'Facedown damage' });
+    if (faceup && definition?.id === 'direct-hit') {
+      defender.damage.at(-1)!.faceup = false; defender.damage.at(-1)!.title = 'Facedown damage';
+      const extraId = state.damageDeck[state.damageCursor++] ?? `exhausted-${state.damageCursor}`;
+      defender.hull -= 1; defender.damage.push({ id: extraId, faceup: false, title: 'Facedown damage' });
+    }
   }
   defender.destroyed = defender.hull <= 0;
 }
@@ -56,7 +64,7 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
   switch (event.type) {
     case 'game/created':
       if (state.phase !== 'lobby' || state.revision !== 0) return reject('A game already exists.');
-      state.gameId = event.payload.gameId; state.seed = event.payload.seed; state.log.push('Table opened the teaching duel.'); break;
+      state.gameId = event.payload.gameId; state.seed = event.payload.seed; state.damageDeck = createDamageDeck(event.payload.seed); state.damageCursor = 0; state.log.push('Table opened the teaching duel.'); break;
     case 'player/joined':
       if (event.actor !== event.payload.seat || state.seats[event.payload.seat].joined) return reject('Seat claim is not authorized.');
       state.seats[event.payload.seat].joined = true; state.log.push(`${event.payload.seat === 'rebel' ? 'Rebel' : 'Imperial'} phone paired.`); break;
@@ -84,8 +92,12 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       const ship = state.ships[event.payload.shipId];
       if (event.actor !== 'table' || state.phase !== 'activation' || event.payload.shipId !== state.activeShipId || !ship?.maneuver) return reject('This is not the active ship.');
       const destination = executeManeuver(ship.pose, ship.maneuver);
-      const collision = Object.values(state.ships).some((other) => other.id !== ship.id && !other.destroyed && overlaps(destination, other.pose));
-      ship.revealed = true; if (!collision && containsPose(destination)) ship.pose = destination;
+      const occupied = Object.values(state.ships).filter((other) => other.id !== ship.id && !other.destroyed).map((other) => other.pose);
+      const collision = occupied.some((pose) => overlaps(destination, pose));
+      ship.revealed = true; ship.pose = collision ? rollbackOverlap(ship.pose, destination, occupied) : destination;
+      const obstacle = teachingDuel.obstacleGeometry.find((item) => distance(ship.pose, item) <= item.radius + 2_000);
+      ship.skipAction = collision || obstacle?.type === 'asteroid';
+      if (obstacle?.type === 'debris') ship.stress += 1;
       if (ship.maneuver.difficulty === 'red') ship.stress += 1;
       if (ship.maneuver.difficulty === 'blue' && ship.stress) ship.stress -= 1;
       state.pending = 'action'; state.log.push(`${shipById(ship.id)!.name} revealed ${ship.maneuver.speed} ${ship.maneuver.bearing}${collision ? ' and stopped before an overlap' : ''}.`); break;
@@ -93,7 +105,7 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
     case 'activation/action': {
       const ship = state.ships[event.payload.shipId]; const manifest = shipById(event.payload.shipId);
       if (event.actor !== 'table' || state.phase !== 'activation' || state.pending !== 'action' || ship?.id !== state.activeShipId) return reject('This ship cannot act now.');
-      if (event.payload.action !== 'pass' && (!manifest?.actions.includes(event.payload.action) || ship.stress > 0)) return reject('That action is not legal.');
+      if (event.payload.action !== 'pass' && (!manifest?.actions.includes(event.payload.action) || ship.stress > 0 || ship.skipAction)) return reject('That action is not legal.');
       if (event.payload.action === 'focus') ship.focus += 1;
       if (event.payload.action === 'evade') ship.evade += 1;
       if (event.payload.action === 'lock' && event.payload.targetId) ship.lock = event.payload.targetId;
@@ -104,7 +116,8 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       const attacker = state.ships[event.payload.attackerId]; const defender = state.ships[event.payload.defenderId]; const range = attacker && defender ? rangeBetween(attacker.pose, defender.pose) : 4;
       if (event.actor !== 'table' || state.phase !== 'engagement' || attacker?.id !== state.activeShipId || !defender || attacker.seat === defender.seat || range < 1 || range > 3 || !isInFrontArc(attacker.pose, defender.pose)) return reject('Target must be an enemy in the front arc at range 1–3.');
       if (defender.id === 'red-five') defender.force = Math.min(shipById(defender.id)!.force ?? 0, defender.force + 1);
-      state.attack = { attackerId: attacker.id, defenderId: defender.id, attack: [], defense: [] }; state.pending = 'attack'; break;
+      const obstructed = teachingDuel.obstacleGeometry.some((obstacle) => segmentIntersectsCircle(attacker.pose, defender.pose, obstacle, obstacle.radius));
+      state.attack = { attackerId: attacker.id, defenderId: defender.id, range: range as 1 | 2 | 3, obstructed, attack: [], defense: [] }; state.pending = 'attack'; break;
     }
     case 'engagement/passed': {
       const attacker = state.ships[event.payload.attackerId];
@@ -114,7 +127,12 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
     }
     case 'engagement/rolled': {
       if (event.actor !== 'table' || state.phase !== 'engagement' || state.pending !== 'attack' || !state.attack) return reject('No attack is ready to roll.');
-      const attackRoll = rollAttack(state.seed, shipById(state.attack.attackerId)!.attack); const defenseRoll = rollDefense(attackRoll.seed, shipById(state.attack.defenderId)!.agility);
+      const attackerState = state.ships[state.attack.attackerId]!; const defenderState = state.ships[state.attack.defenderId]!;
+      const weaponsFailure = attackerState.damage.some((card) => card.faceup && card.id.startsWith('weapons-failure-')) ? 1 : 0;
+      const structuralDamage = defenderState.damage.some((card) => card.faceup && card.id.startsWith('structural-damage-')) ? 1 : 0;
+      const attackDice = Math.max(0, shipById(state.attack.attackerId)!.attack - weaponsFailure + (state.attack.range === 1 ? 1 : 0));
+      const defenseDice = Math.max(0, shipById(state.attack.defenderId)!.agility - structuralDamage + (state.attack.range === 3 ? 1 : 0) + (state.attack.obstructed ? 1 : 0));
+      const attackRoll = rollAttack(state.seed, attackDice); const defenseRoll = rollDefense(attackRoll.seed, defenseDice);
       state.seed = defenseRoll.seed; state.attack.attack = attackRoll.results; state.attack.defense = defenseRoll.results; state.pending = 'damage'; break;
     }
     case 'engagement/resolved': {
@@ -129,7 +147,7 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       if (!rebel || !imperial) { state.phase = 'finished'; state.winner = rebel === imperial ? 'draw' : rebel ? 'rebel' : 'imperial'; state.pending = null; }
       else {
         state.round += 1; state.phase = 'planning'; state.pending = null; state.seats.rebel.committed = false; state.seats.imperial.committed = false;
-        for (const ship of Object.values(state.ships)) { ship.maneuver = undefined; ship.revealed = false; ship.activated = false; ship.engaged = false; ship.focus = 0; ship.evade = 0; }
+        for (const ship of Object.values(state.ships)) { ship.maneuver = undefined; ship.revealed = false; ship.activated = false; ship.engaged = false; ship.skipAction = false; ship.focus = 0; ship.evade = 0; }
       }
       break;
     }

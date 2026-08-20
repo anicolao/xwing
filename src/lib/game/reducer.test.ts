@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { executeManeuver, isInFrontArc, rangeBetween } from '$lib/geometry';
+import { executeManeuver, isInFrontArc, rangeBetween, rollbackOverlap, segmentIntersectsCircle } from '$lib/geometry';
 import { shipById } from '$lib/manifests/teaching-duel';
 import { applyEvent, createInitialState, replay } from './reducer';
 import type { GameEvent } from './model';
+import { createDamageDeck, damageCards } from '$lib/manifests/damage-deck';
 
 describe('fixed-point geometry', () => {
   it('locks the reviewed T-65 and TIE/ln dial entries', () => {
@@ -29,6 +30,13 @@ describe('fixed-point geometry', () => {
     expect(isInFrontArc(attacker, { x: 20_000, y: 30_000, angle: 0 })).toBe(true);
     expect(isInFrontArc(attacker, { x: 40_000, y: 50_000, angle: 0 })).toBe(false);
   });
+  it('backs up to the furthest non-overlapping pose and measures obstruction semantically', () => {
+    const stopped = rollbackOverlap({ x: 10_000, y: 30_000, angle: 0 }, { x: 10_000, y: 10_000, angle: 0 }, [{ x: 10_000, y: 14_000, angle: 0 }]);
+    expect(stopped.y).toBeGreaterThanOrEqual(18_000);
+    expect(stopped.y).toBeLessThan(18_050);
+    expect(segmentIntersectsCircle({ x: 0, y: 0 }, { x: 20_000, y: 0 }, { x: 10_000, y: 2_000 }, 2_100)).toBe(true);
+    expect(segmentIntersectsCircle({ x: 0, y: 0 }, { x: 20_000, y: 0 }, { x: 10_000, y: 3_000 }, 2_100)).toBe(false);
+  });
 });
 
 describe('event reducer', () => {
@@ -49,5 +57,17 @@ describe('event reducer', () => {
       event({ id: 'e3', type: 'player/joined', actor: 'imperial', sequence: 3, payload: { seat: 'imperial' } })
     ];
     expect(replay(events)).toEqual(replay(structuredClone(events)));
+  });
+});
+
+describe('standard damage deck', () => {
+  it('contains 33 stable instances with the reviewed 8/25 type split', () => {
+    expect(damageCards.reduce((sum, card) => sum + card.count, 0)).toBe(33);
+    expect(damageCards.filter((card) => card.type === 'pilot').reduce((sum, card) => sum + card.count, 0)).toBe(8);
+    expect(new Set(createDamageDeck(42)).size).toBe(33);
+  });
+  it('shuffles deterministically by committed seed', () => {
+    expect(createDamageDeck(42)).toEqual(createDamageDeck(42));
+    expect(createDamageDeck(42)).not.toEqual(createDamageDeck(43));
   });
 });

@@ -88,7 +88,7 @@ test('two seats plan privately and resolve a public attack on the shared table',
     surfaces,
     verifications: [
       { spec: 'All three ships moved through canonical speed-three geometry before combat', check: async () => { await expect(page.locator('[data-ship]')).toHaveCount(3); await expect(page.locator('.phase')).toHaveText('engagement'); } },
-      { spec: 'The table presents labeled attack and defense dice and an Apply results choice', check: async () => { await expect(page.locator('.dice-tray')).toBeVisible(); await expect(page.getByAltText(/Attack die/)).toHaveCount(3); await expect(page.getByRole('button', { name: 'Apply results' })).toBeVisible(); } },
+      { spec: 'The table applies the range-one bonus and presents labeled attack and defense dice', check: async () => { await expect(page.locator('.dice-tray')).toContainText('RANGE 1'); await expect(page.getByAltText(/Attack die/)).toHaveCount(4); await expect(page.getByRole('button', { name: 'Apply results' })).toBeVisible(); } },
       { spec: 'Both phones remain public-control-free waiting surfaces during combat', check: async () => { for (const hand of [rebel, imperial]) { await expect(hand.getByRole('heading', { name: 'Eyes on the table' })).toBeVisible(); await expect(hand.getByRole('button')).toHaveCount(0); } } },
       { spec: 'The complete multi-surface story has no browser or asset error', check: async () => expect(errors).toEqual([]) }
     ]

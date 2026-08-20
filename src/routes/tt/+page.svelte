@@ -107,7 +107,7 @@
     {/if}
     {#if game.attack}
       <div class="dice-tray" aria-label="Attack dice tray">
-        <p>{shipById(game.attack.attackerId)?.name} → {shipById(game.attack.defenderId)?.name}</p>
+        <p>{shipById(game.attack.attackerId)?.name} → {shipById(game.attack.defenderId)?.name} · RANGE {game.attack.range}{game.attack.obstructed ? ' · OBSTRUCTED' : ''}</p>
         {#if game.pending === 'attack'}
           <button class="primary" onclick={roll}>Roll attack and defense</button>
         {:else}
@@ -141,7 +141,7 @@
     <nav class:far-actions={activeShip.seat === 'imperial'} class="action-strip" aria-label={`${activeManifest.name} actions`}>
       <strong>{activeManifest.name}</strong>
       {#each activeManifest.actions as action}
-        <button onclick={() => act(activeShip!.id, action)} disabled={activeShip.stress > 0}>
+        <button onclick={() => act(activeShip!.id, action)} disabled={activeShip.stress > 0 || activeShip.skipAction}>
           <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />{action}
         </button>
       {/each}

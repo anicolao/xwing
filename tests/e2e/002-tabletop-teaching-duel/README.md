@@ -114,7 +114,7 @@ One shared 4K table pairs two private hands, keeps both dial values off the publ
 **Verifications:**
 
 - [x] All three ships moved through canonical speed-three geometry before combat
-- [x] The table presents labeled attack and defense dice and an Apply results choice
+- [x] The table applies the range-one bonus and presents labeled attack and defense dice
 - [x] Both phones remain public-control-free waiting surfaces during combat
 - [x] The complete multi-surface story has no browser or asset error
 

@@ -32,6 +32,27 @@ export function isInFrontArc(attacker: Pose, target: Pose): boolean {
   return dot > 0 && Math.abs(facing.x * vector.y - facing.y * vector.x) <= dot;
 }
 export const overlaps = (a: Pose, b: Pose) => Math.abs(a.x - b.x) < BASE_SIZE && Math.abs(a.y - b.y) < BASE_SIZE;
+export function rollbackOverlap(start: Pose, destination: Pose, occupied: readonly Pose[]): Pose {
+  let low = 0; let high = 1_000;
+  for (let iteration = 0; iteration < 12; iteration += 1) {
+    const progress = Math.floor((low + high) / 2);
+    const candidate = {
+      x: Math.round(start.x + (destination.x - start.x) * progress / 1_000),
+      y: Math.round(start.y + (destination.y - start.y) * progress / 1_000),
+      angle: normalizeAngle(Math.round(start.angle + (destination.angle - start.angle) * progress / 1_000))
+    };
+    if (occupied.some((pose) => overlaps(candidate, pose))) high = progress;
+    else low = progress;
+  }
+  return { x: Math.round(start.x + (destination.x - start.x) * low / 1_000), y: Math.round(start.y + (destination.y - start.y) * low / 1_000), angle: normalizeAngle(Math.round(start.angle + (destination.angle - start.angle) * low / 1_000)) };
+}
+
+export function segmentIntersectsCircle(start: Point, end: Point, center: Point, radius: number): boolean {
+  const dx = end.x - start.x; const dy = end.y - start.y;
+  const lengthSquared = dx * dx + dy * dy;
+  const projection = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1, ((center.x - start.x) * dx + (center.y - start.y) * dy) / lengthSquared));
+  return distance(center, { x: start.x + projection * dx, y: start.y + projection * dy }) <= radius;
+}
 export function containsPose(pose: Pose, width = 91_440, height = 91_440): boolean {
   const half = BASE_SIZE / 2;
   return pose.x >= half && pose.y >= half && pose.x <= width - half && pose.y <= height - half;
