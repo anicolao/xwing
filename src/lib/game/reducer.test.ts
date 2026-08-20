@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { executeManeuver, isInFrontArc, rangeBetween, rollbackOverlap, segmentIntersectsCircle } from '$lib/geometry';
 import { shipById } from '$lib/manifests/teaching-duel';
-import { applyEvent, createInitialState, replay } from './reducer';
+import { applyEvent, createInitialState, GAME_CONFIG, replay } from './reducer';
 import type { GameEvent } from './model';
 import { createDamageDeck, damageCards } from '$lib/manifests/damage-deck';
 
@@ -47,16 +47,20 @@ describe('event reducer', () => {
     expect(result.diagnostic).toBeUndefined(); expect(result.state.ships['red-five']?.maneuver?.id).toBe('2-straight'); expect(result.state.ships['red-five']?.revealed).toBe(false);
   });
   it('rejects stale events without partially mutating state', () => {
-    const state = createInitialState('duel'); const result = applyEvent(state, event({ id: 'stale', type: 'game/created', actor: 'table', sequence: 2, payload: { gameId: 'bad', seed: 1 } }));
+    const state = createInitialState('duel'); const result = applyEvent(state, event({ id: 'stale', type: 'game/created', actor: 'table', sequence: 2, payload: { gameId: 'bad', seed: 1, config: GAME_CONFIG } }));
     expect(result.state).toBe(state); expect(result.diagnostic?.message).toContain('sequence');
   });
   it('replays the same immutable prefix to the same state', () => {
     const events: GameEvent[] = [
-      event({ id: 'e1', type: 'game/created', actor: 'table', sequence: 1, payload: { gameId: 'alpha', seed: 42 } }),
+      event({ id: 'e1', type: 'game/created', actor: 'table', sequence: 1, payload: { gameId: 'alpha', seed: 42, config: GAME_CONFIG } }),
       event({ id: 'e2', type: 'player/joined', actor: 'rebel', sequence: 2, payload: { seat: 'rebel' } }),
       event({ id: 'e3', type: 'player/joined', actor: 'imperial', sequence: 3, payload: { seat: 'imperial' } })
     ];
     expect(replay(events)).toEqual(replay(structuredClone(events)));
+  });
+  it('stops replay when a committed engine version is unavailable', () => {
+    const incompatible = event({ id: 'e1', type: 'game/created', actor: 'table', sequence: 1, payload: { gameId: 'future', seed: 42, config: { ...GAME_CONFIG, reducer: 'future-reducer' } } });
+    const result = replay([incompatible]); expect(result.state.revision).toBe(0); expect(result.diagnostics[0]?.message).toContain('unsupported');
   });
   it('finishes immediately when a squad publicly concedes', () => {
     const state = createInitialState('duel'); state.phase = 'engagement'; state.revision = 12; state.pending = 'target';

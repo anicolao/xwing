@@ -210,5 +210,6 @@ One shared 4K table pairs two private hands, keeps both dial values off the publ
 **Verifications:**
 
 - [x] Replay opens at the complete immutable prefix with previous and next navigation
+- [x] Replay names its committed rules, reducer, geometry, and PRNG versions
 - [x] Stepping backward changes only the replay projection
 - [x] Replay remains free of browser and asset errors

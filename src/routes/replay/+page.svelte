@@ -20,7 +20,7 @@
 
 <svelte:head><title>X-Wing event replay</title></svelte:head>
 <main data-status={ready ? 'ready' : 'loading'} data-e2e-layout style={`--starfield:url('${assets}/assets/starfield.webp')`}>
-  <header><a href={`${base}/tt`}>← Table</a><div><p>IMMUTABLE FLIGHT REPLAY</p><small>{snapshot.gameId} · event {cursor} of {events.length}</small></div><span>{snapshot.phase} · round {snapshot.round}</span></header>
+  <header><a href={`${base}/tt`}>← Table</a><div><p>IMMUTABLE FLIGHT REPLAY</p><small class="event-position">{snapshot.gameId} · event {cursor} of {events.length}</small><small>{snapshot.config.ruleset} · {snapshot.config.reducer} · {snapshot.config.geometry} · {snapshot.config.prng}</small></div><span>{snapshot.phase} · round {snapshot.round}</span></header>
   <section class="stage" aria-label="Replay battlefield">
     <div class="grid"></div>
     {#each Object.values(snapshot.ships) as ship}<ShipPiece {ship} />{/each}

@@ -178,7 +178,8 @@ test('two seats plan privately and resolve a public attack on the shared table',
     surfaces: [{ id: 'replay', label: 'Public event replay', page: replayPage }],
     verifications: [
       { spec: 'Replay opens at the complete immutable prefix with previous and next navigation', check: async () => { await expect(replayPage.getByRole('heading', { name: 'Event history' })).toBeVisible(); await expect(replayPage.getByRole('button', { name: 'Previous' })).toBeVisible(); await expect(replayPage.locator('aside li')).not.toHaveCount(0); } },
-      { spec: 'Stepping backward changes only the replay projection', check: async () => { const before = await replayPage.locator('header small').innerText(); await replayPage.getByRole('button', { name: 'Previous' }).click(); await expect(replayPage.locator('header small')).not.toHaveText(before); await expect(page.locator('.phase')).toHaveText('finished'); } },
+      { spec: 'Replay names its committed rules, reducer, geometry, and PRNG versions', check: async () => await expect(replayPage.getByText(/ffg-second-edition-1\.3\.2 · teaching-reducer-1 · fixed-point-geometry-1 · xorshift32-1/)).toBeVisible() },
+      { spec: 'Stepping backward changes only the replay projection', check: async () => { const position = replayPage.locator('.event-position'); const before = await position.innerText(); await replayPage.getByRole('button', { name: 'Previous' }).click(); await expect(position).not.toHaveText(before); await expect(page.locator('.phase')).toHaveText('finished'); } },
       { spec: 'Replay remains free of browser and asset errors', check: async () => expect(errors).toEqual([]) }
     ]
   });

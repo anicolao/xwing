@@ -1,7 +1,7 @@
 import { browser } from '$app/environment';
 import { env } from '$env/dynamic/public';
 import type { GameEvent } from '$lib/game/model';
-import { replay } from '$lib/game/reducer';
+import { GAME_CONFIG, replay } from '$lib/game/reducer';
 import type { Seat } from '$lib/manifests/teaching-duel';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import { connectAuthEmulator, getAuth, signInAnonymously, type Auth } from 'firebase/auth';
@@ -81,10 +81,10 @@ export function subscribeToRoom(roomId: string, listener: (events: GameEvent[]) 
 
 export async function createRoom(roomId = ROOM_ID) {
   if (!browser) return;
-  if (!useFirestore) { localStorage.removeItem(key(roomId)); await appendEvent({ type: 'game/created', actor: 'table', payload: { gameId: roomId, seed: 0x5857494e } }, roomId); return; }
+  if (!useFirestore) { localStorage.removeItem(key(roomId)); await appendEvent({ type: 'game/created', actor: 'table', payload: { gameId: roomId, seed: 0x5857494e, config: GAME_CONFIG } }, roomId); return; }
   const { auth, db } = await remoteClient();
   await setDoc(doc(db, 'games', roomId), { revision: 0, tableUid: auth.currentUser!.uid, createdAt: Date.now(), updatedAt: Date.now() });
-  await appendEvent({ type: 'game/created', actor: 'table', payload: { gameId: roomId, seed: 0x5857494e } }, roomId);
+  await appendEvent({ type: 'game/created', actor: 'table', payload: { gameId: roomId, seed: 0x5857494e, config: GAME_CONFIG } }, roomId);
 }
 
 export async function claimSeat(roomId: string, seat: Seat, code: string) {

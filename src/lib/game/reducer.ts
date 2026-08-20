@@ -1,8 +1,10 @@
 import { containsPose, distance, executeManeuver, isInFrontArc, overlaps, rangeBetween, rollbackOverlap, segmentIntersectsCircle } from '$lib/geometry';
-import { setupOrder, shipById, ships, teachingDuel, type Seat } from '$lib/manifests/teaching-duel';
-import type { Diagnostic, GameEvent, GameState, ShipState } from './model';
+import { MANIFEST_VERSION, RULESET_ID, setupOrder, shipById, ships, teachingDuel, type Seat } from '$lib/manifests/teaching-duel';
+import type { Diagnostic, GameConfig, GameEvent, GameState, ShipState } from './model';
 import { rollAttack, rollDefense } from './prng';
 import { createDamageDeck, damageDefinition } from '$lib/manifests/damage-deck';
+
+export const GAME_CONFIG: GameConfig = { ruleset: RULESET_ID, manifest: MANIFEST_VERSION, reducer: 'teaching-reducer-1', geometry: 'fixed-point-geometry-1', prng: 'xorshift32-1', damageDeck: 'standard-damage-deck-1' };
 
 const initialShip = (id: string): ShipState => {
   const manifest = shipById(id)!;
@@ -11,7 +13,7 @@ const initialShip = (id: string): ShipState => {
 };
 
 export const createInitialState = (gameId = 'uncreated', seed = 0x5857494e): GameState => ({
-  gameId, revision: 0, phase: 'lobby', round: 0, seed,
+  gameId, revision: 0, phase: 'lobby', round: 0, seed, config: GAME_CONFIG,
   seats: { rebel: { joined: false, ready: false, committed: false }, imperial: { joined: false, ready: false, committed: false } },
   setupPlaced: [], ships: Object.fromEntries(ships.map((ship) => [ship.id, initialShip(ship.id)])), damageDeck: createDamageDeck(seed), damageCursor: 0, pending: null, log: []
 });
@@ -54,7 +56,8 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
   switch (event.type) {
     case 'game/created':
       if (state.phase !== 'lobby' || state.revision !== 0) return reject('A game already exists.');
-      state.gameId = event.payload.gameId; state.seed = event.payload.seed; state.damageDeck = createDamageDeck(event.payload.seed); state.damageCursor = 0; state.log.push('Table opened the teaching duel.'); break;
+      if (JSON.stringify(event.payload.config) !== JSON.stringify(GAME_CONFIG)) return reject('This game references an unsupported rules or engine version.');
+      state.gameId = event.payload.gameId; state.seed = event.payload.seed; state.config = { ...event.payload.config }; state.damageDeck = createDamageDeck(event.payload.seed); state.damageCursor = 0; state.log.push('Table opened the teaching duel.'); break;
     case 'player/joined':
       if (event.actor !== event.payload.seat || state.seats[event.payload.seat].joined) return reject('Seat claim is not authorized.');
       state.seats[event.payload.seat].joined = true; state.log.push(`${event.payload.seat === 'rebel' ? 'Rebel' : 'Imperial'} phone paired.`); break;
