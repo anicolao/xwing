@@ -14,15 +14,16 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" type="image/png" href="./icon.png" />
     <link rel="apple-touch-icon" href="./icon.png" />
-    <link href="./_app/immutable/entry/start.59dIxKwg.js" rel="modulepreload">
-		<link href="./_app/immutable/chunks/CEtCQNvl.js" rel="modulepreload">
+    <link href="./_app/immutable/entry/start.DE7tkBD1.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/BpvFhw6Q.js" rel="modulepreload">
 		<link href="./_app/immutable/chunks/Su5MhAUG.js" rel="modulepreload">
-		<link href="./_app/immutable/entry/app.mik-xRzh.js" rel="modulepreload">
+		<link href="./_app/immutable/entry/app._R36Um-w.js" rel="modulepreload">
 		<link href="./_app/immutable/chunks/xihTtKlq.js" rel="modulepreload">
 		<link href="./_app/immutable/nodes/0.Bxr7anz3.js" rel="modulepreload">
-		<link href="./_app/immutable/nodes/5.DOfIC1ie.js" rel="modulepreload">
-		<link href="./_app/immutable/chunks/mtb-r9BO.js" rel="modulepreload">
-		<link href="./_app/immutable/chunks/BKm1-eZb.js" rel="modulepreload">
+		<link href="./_app/immutable/nodes/5.4gRd0TBv.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/C2GIs0Hi.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/CQA5G-U6.js" rel="modulepreload">
+		<link href="./_app/env.js" rel="modulepreload">
 		
 		<link href="./_app/immutable/assets/local-game.C7WKaaaK.css" rel="stylesheet">
 		<link href="./_app/immutable/assets/ShipPiece.RA4Q4w2J.css" rel="stylesheet">
@@ -32,18 +33,23 @@
     <div style="display: contents">
 			<script>
 				{
-					__sveltekit_x5bed1 = {
+					__sveltekit_yt04qk = {
 						base: new URL(".", location).pathname.slice(0, -1),
-						assets: "/xwing/pr1"
+						assets: "/xwing/pr1",
+						env: null
 					};
 
 					const element = document.currentScript.parentElement;
 
-					Promise.all([
-						import("./_app/immutable/entry/start.59dIxKwg.js"),
-						import("./_app/immutable/entry/app.mik-xRzh.js")
-					]).then(([kit, app]) => {
-						kit.start(app, element);
+					import("./_app/env.js").then(({ env }) => {
+						__sveltekit_yt04qk.env = env;
+
+						Promise.all([
+							import("./_app/immutable/entry/start.DE7tkBD1.js"),
+							import("./_app/immutable/entry/app._R36Um-w.js")
+						]).then(([kit, app]) => {
+							kit.start(app, element);
+						});
 					});
 				}
 			</script>
