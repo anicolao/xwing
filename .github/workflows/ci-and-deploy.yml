@@ -67,6 +67,9 @@ jobs:
       inputs.update_snapshots != true &&
       (github.event_name != 'pull_request' ||
       github.event.pull_request.head.repo.full_name == github.repository)
+    concurrency:
+      group: pages-deploy
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -88,12 +91,40 @@ jobs:
         env:
           PUBLIC_BASE_PATH: ${{ steps.deployment.outputs.base }}
           VITE_GIT_HASH: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Check out retained Pages content
+        uses: actions/checkout@v6
+        with:
+          ref: gh-pages
+          path: retained-pages
+      - name: Assemble a clean retained deployment
+        shell: bash
+        env:
+          DESTINATION: ${{ steps.deployment.outputs.destination }}
+        run: |
+          set -euo pipefail
+          site_dir="$RUNNER_TEMP/xwing-pages-site"
+          mkdir -p "$site_dir"
+          cp -a retained-pages/. "$site_dir/"
+          rm -rf -- "$site_dir/.git"
+
+          if [[ -n "$DESTINATION" ]]; then
+            if [[ ! "$DESTINATION" =~ ^pr[0-9]+$ ]]; then
+              echo "Refusing unexpected preview destination: $DESTINATION" >&2
+              exit 1
+            fi
+            preview_dir="$site_dir/$DESTINATION"
+            rm -rf -- "$preview_dir"
+            mkdir -p "$preview_dir"
+            cp -a build/. "$preview_dir/"
+          else
+            find "$site_dir" -mindepth 1 -maxdepth 1 \
+              ! -name 'pr[0-9]*' -exec rm -rf -- {} +
+            cp -a build/. "$site_dir/"
+          fi
       - uses: peaceiris/actions-gh-pages@v4.1.0
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: build
-          destination_dir: ${{ steps.deployment.outputs.destination }}
-          keep_files: true
+          publish_dir: ${{ runner.temp }}/xwing-pages-site
       - name: Link the retained pull-request preview
         if: github.event_name == 'pull_request'
         env:
