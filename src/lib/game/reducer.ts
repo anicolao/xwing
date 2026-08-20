@@ -151,6 +151,10 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       }
       break;
     }
+    case 'game/conceded':
+      if (event.actor !== 'table' || state.phase === 'lobby' || state.phase === 'finished') return reject('This game cannot be conceded now.');
+      state.phase = 'finished'; state.winner = event.payload.seat === 'rebel' ? 'imperial' : 'rebel'; state.pending = null; state.attack = undefined;
+      state.log.push(`${event.payload.seat === 'rebel' ? 'Rebel' : 'Imperial'} squad conceded.`); break;
     case 'game/rematched': return { state: { ...createInitialState(state.gameId, event.payload.seed), revision: event.sequence, log: ['Rematch opened.'] } };
   }
   state.revision = event.sequence; return { state };

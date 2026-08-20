@@ -118,17 +118,55 @@ One shared 4K table pairs two private hands, keeps both dial values off the publ
 - [x] Both phones remain public-control-free waiting surfaces during combat
 - [x] The complete multi-surface story has no browser or asset error
 
+## A public two-touch concession ends the teaching duel with an unambiguous result
+
+### Shared 4K tabletop
+
+![A public two-touch concession ends the teaching duel with an unambiguous result - Shared 4K tabletop - macOS development baseline](./screenshots/003-rebel-victory-table-4k.png)
+
+[Open full-size macOS development baseline](./screenshots/003-rebel-victory-table-4k.png)
+
+![A public two-touch concession ends the teaching duel with an unambiguous result - Shared 4K tabletop - Linux CI baseline](./screenshots/003-rebel-victory-table-4k-linux.png)
+
+[Open full-size Linux CI baseline](./screenshots/003-rebel-victory-table-4k-linux.png)
+
+### Rebel private hand
+
+![A public two-touch concession ends the teaching duel with an unambiguous result - Rebel private hand - macOS development baseline](./screenshots/003-rebel-victory-rebel-phone.png)
+
+[Open full-size macOS development baseline](./screenshots/003-rebel-victory-rebel-phone.png)
+
+![A public two-touch concession ends the teaching duel with an unambiguous result - Rebel private hand - Linux CI baseline](./screenshots/003-rebel-victory-rebel-phone-linux.png)
+
+[Open full-size Linux CI baseline](./screenshots/003-rebel-victory-rebel-phone-linux.png)
+
+### Imperial private hand
+
+![A public two-touch concession ends the teaching duel with an unambiguous result - Imperial private hand - macOS development baseline](./screenshots/003-rebel-victory-imperial-phone.png)
+
+[Open full-size macOS development baseline](./screenshots/003-rebel-victory-imperial-phone.png)
+
+![A public two-touch concession ends the teaching duel with an unambiguous result - Imperial private hand - Linux CI baseline](./screenshots/003-rebel-victory-imperial-phone-linux.png)
+
+[Open full-size Linux CI baseline](./screenshots/003-rebel-victory-imperial-phone-linux.png)
+
+**Verifications:**
+
+- [x] A destroyed ship displays production damage-card art
+- [x] The result freezes public gameplay and offers replay and rematch on the table
+- [x] Both private hands remain waiting surfaces after game end
+
 ## The accepted event history can be replayed at every prefix
 
 ### Public event replay
 
-![The accepted event history can be replayed at every prefix - Public event replay - macOS development baseline](./screenshots/003-immutable-replay-replay.png)
+![The accepted event history can be replayed at every prefix - Public event replay - macOS development baseline](./screenshots/004-immutable-replay-replay.png)
 
-[Open full-size macOS development baseline](./screenshots/003-immutable-replay-replay.png)
+[Open full-size macOS development baseline](./screenshots/004-immutable-replay-replay.png)
 
-![The accepted event history can be replayed at every prefix - Public event replay - Linux CI baseline](./screenshots/003-immutable-replay-replay-linux.png)
+![The accepted event history can be replayed at every prefix - Public event replay - Linux CI baseline](./screenshots/004-immutable-replay-replay-linux.png)
 
-[Open full-size Linux CI baseline](./screenshots/003-immutable-replay-replay-linux.png)
+[Open full-size Linux CI baseline](./screenshots/004-immutable-replay-replay-linux.png)
 
 **Verifications:**
 

@@ -95,7 +95,35 @@ test('two seats plan privately and resolve a public attack on the shared table',
   });
 
   await page.getByRole('button', { name: 'Apply results' }).click();
-  const replayLink = page.getByRole('link', { name: 'Replay' });
+  await page.getByRole('button', { name: 'Pass attack' }).click();
+  await page.getByRole('button', { name: 'Resolve End phase' }).click();
+
+  await rebel.getByRole('button', { name: /Red Five: speed 4 koiogran/ }).click();
+  await imperial.getByRole('button', { name: /Onyx Two: speed 1 turn-right/ }).click();
+  await rebel.getByRole('button', { name: 'Commit all maneuvers' }).click();
+  await imperial.getByRole('button', { name: 'Commit all maneuvers' }).click();
+  await page.locator('button.selectable').click();
+  await page.getByRole('navigation', { name: /actions/ }).getByRole('button', { name: /focus/ }).click();
+  await page.locator('button.selectable').click();
+  await page.getByRole('navigation', { name: /actions/ }).getByRole('button', { name: 'Pass' }).click();
+  await page.locator('button.selectable').click();
+  await page.getByRole('button', { name: 'Roll attack and defense' }).click();
+  await page.getByRole('button', { name: 'Apply results' }).click();
+  await page.getByRole('button', { name: 'Pass attack' }).click();
+  await page.getByRole('button', { name: 'Concede Imperial squad' }).click();
+  await page.getByRole('button', { name: 'Confirm Imperial concession' }).click();
+
+  await steps.step('rebel-victory', {
+    description: 'A public two-touch concession ends the teaching duel with an unambiguous result',
+    surfaces,
+    verifications: [
+      { spec: 'A destroyed ship displays production damage-card art', check: async () => { await expect(page.getByText('REBEL VICTORY')).toBeVisible(); await expect(page.locator('[data-ship="onyx-one"] .damage img')).toBeVisible(); } },
+      { spec: 'The result freezes public gameplay and offers replay and rematch on the table', check: async () => { await expect(page.getByRole('link', { name: 'Review replay' })).toBeVisible(); await expect(page.getByRole('button', { name: 'Open rematch' })).toBeVisible(); await expect(page.getByRole('button', { name: /Roll|Apply|Pass attack/ })).toHaveCount(0); } },
+      { spec: 'Both private hands remain waiting surfaces after game end', check: async () => { for (const hand of [rebel, imperial]) { await expect(hand.getByRole('heading', { name: 'Eyes on the table' })).toBeVisible(); await expect(hand.getByRole('button')).toHaveCount(0); } } }
+    ]
+  });
+
+  const replayLink = page.getByRole('link', { name: 'Replay', exact: true });
   const replayPage = await context.newPage(); await replayPage.setViewportSize({ width: 2560, height: 1440 }); watch('replay', replayPage);
   await replayPage.goto(await replayLink.getAttribute('href') ?? '/replay?room=FLIGHT7');
   await steps.step('immutable-replay', {
@@ -103,7 +131,7 @@ test('two seats plan privately and resolve a public attack on the shared table',
     surfaces: [{ id: 'replay', label: 'Public event replay', page: replayPage }],
     verifications: [
       { spec: 'Replay opens at the complete immutable prefix with previous and next navigation', check: async () => { await expect(replayPage.getByRole('heading', { name: 'Event history' })).toBeVisible(); await expect(replayPage.getByRole('button', { name: 'Previous' })).toBeVisible(); await expect(replayPage.locator('aside li')).not.toHaveCount(0); } },
-      { spec: 'Stepping backward changes only the replay projection', check: async () => { const before = await replayPage.locator('header small').innerText(); await replayPage.getByRole('button', { name: 'Previous' }).click(); await expect(replayPage.locator('header small')).not.toHaveText(before); await expect(page.locator('.phase')).toHaveText('engagement'); } },
+      { spec: 'Stepping backward changes only the replay projection', check: async () => { const before = await replayPage.locator('header small').innerText(); await replayPage.getByRole('button', { name: 'Previous' }).click(); await expect(replayPage.locator('header small')).not.toHaveText(before); await expect(page.locator('.phase')).toHaveText('finished'); } },
       { spec: 'Replay remains free of browser and asset errors', check: async () => expect(errors).toEqual([]) }
     ]
   });

@@ -58,6 +58,11 @@ describe('event reducer', () => {
     ];
     expect(replay(events)).toEqual(replay(structuredClone(events)));
   });
+  it('finishes immediately when a squad publicly concedes', () => {
+    const state = createInitialState('duel'); state.phase = 'engagement'; state.revision = 12; state.pending = 'target';
+    const result = applyEvent(state, event({ id: 'e13', type: 'game/conceded', actor: 'table', sequence: 13, payload: { seat: 'imperial' } }));
+    expect(result.diagnostic).toBeUndefined(); expect(result.state.phase).toBe('finished'); expect(result.state.winner).toBe('rebel'); expect(result.state.pending).toBeNull();
+  });
 });
 
 describe('standard damage deck', () => {

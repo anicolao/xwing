@@ -26,5 +26,6 @@ export type GameEvent =
   | EventBase<'engagement/rolled', Record<string, never>>
   | EventBase<'engagement/resolved', Record<string, never>>
   | EventBase<'round/ended', Record<string, never>>
+  | EventBase<'game/conceded', { seat: Seat }>
   | EventBase<'game/rematched', { seed: number }>;
 export interface Diagnostic { eventId: string; message: string }

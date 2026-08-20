@@ -16,6 +16,7 @@
   let rotation = $state(0);
   let rebelUrl = $state('');
   let imperialUrl = $state('');
+  let confirmConcession = $state<Seat | null>(null);
 
   onMount(() => {
     const route = `${location.origin}${base}/hand?room=${ROOM_ID}`;
@@ -45,6 +46,11 @@
   function roll() { perform(() => appendEvent({ type: 'engagement/rolled', actor: 'table', payload: {} }), 'Dice rolled from the committed seed.'); }
   function resolveAttack() { perform(() => appendEvent({ type: 'engagement/resolved', actor: 'table', payload: {} }), 'Results neutralized and damage applied.'); }
   function endRound() { perform(() => appendEvent({ type: 'round/ended', actor: 'table', payload: {} }), 'End phase resolved.'); }
+  function concede(seat: Seat) {
+    if (confirmConcession !== seat) { confirmConcession = seat; notice = `Tap again to confirm the ${seat} concession.`; return; }
+    perform(() => appendEvent({ type: 'game/conceded', actor: 'table', payload: { seat } }), `${seat === 'rebel' ? 'Rebel' : 'Imperial'} squad conceded.`);
+    confirmConcession = null;
+  }
   function rematch() { perform(() => appendEvent({ type: 'game/rematched', actor: 'table', payload: { seed: 0x5857494e + game.revision } }), 'Rematch opened with a new deterministic seed.'); }
 
   const activeShip = $derived(game.activeShipId ? game.ships[game.activeShipId] : undefined);
@@ -65,6 +71,7 @@
       </div>
       {#if game.seats.imperial.joined}<button onclick={() => readySeat('imperial')} disabled={game.seats.imperial.ready}>{game.seats.imperial.ready ? 'Squad ready' : 'Ready Imperial squad'}</button>{/if}
     {/if}
+    {#if !['lobby', 'finished'].includes(game.phase)}<button class="concede" onclick={() => concede('imperial')}>{confirmConcession === 'imperial' ? 'Confirm Imperial concession' : 'Concede Imperial squad'}</button>{/if}
   </section>
 
   <aside class="rail left" aria-label="Game state">
@@ -136,6 +143,7 @@
       </div>
       {#if game.seats.rebel.joined}<button onclick={() => readySeat('rebel')} disabled={game.seats.rebel.ready}>{game.seats.rebel.ready ? 'Squad ready' : 'Ready Rebel squad'}</button>{/if}
     {/if}
+    {#if !['lobby', 'finished'].includes(game.phase)}<button class="concede" onclick={() => concede('rebel')}>{confirmConcession === 'rebel' ? 'Confirm Rebel concession' : 'Concede Rebel squad'}</button>{/if}
   </section>
   {#if game.phase === 'activation' && game.pending === 'action' && activeShip && activeManifest}
     <nav class:far-actions={activeShip.seat === 'imperial'} class="action-strip" aria-label={`${activeManifest.name} actions`}>
@@ -175,7 +183,7 @@
   .center-message { position:absolute; z-index:5; left:50%; top:50%; display:grid; justify-items:center; width:min(78%,700px); padding:clamp(18px,3vw,50px); border:1px solid #6fd4e866; border-radius:14px; transform:translate(-50%,-50%) rotate(calc(-1 * var(--view-rotation))); background:#07111fee; text-align:center; box-shadow:0 20px 70px #000; }
   .center-message img { width:clamp(84px,10vw,200px); } .center-message h1 { margin:15px 0 4px; font:700 clamp(17px,1.8vw,40px) 'Space Mono'; letter-spacing:.08em; } .center-message p { margin:8px 0 18px; color:#b7cbd2; font-size:clamp(12px,1vw,23px); } .compact { width:min(65%,560px); padding:24px; }
   .primary { min-height:54px; background:#b66c22; border-color:#efbb58; font-size:1.08em; }
-  .instruction { position:absolute; z-index:6; left:50%; top:50%; display:grid; gap:7px; justify-items:center; padding:18px 28px; transform:translate(-50%,-50%) rotate(calc(-1 * var(--view-rotation))); border:1px solid #efbb58; border-radius:10px; background:#07111feb; text-align:center; } .instruction b { color:#efbb58; font:700 1.1rem 'Space Mono'; } .instruction button, .dice-tray button { border:1px solid #6fd4e8; border-radius:6px; background:#17384c; color:white; font-weight:700; }
+  .instruction { position:absolute; z-index:6; left:50%; top:50%; display:grid; gap:7px; justify-items:center; padding:18px 28px; transform:translate(-50%,-50%) rotate(calc(-1 * var(--view-rotation))); border:1px solid #efbb58; border-radius:10px; background:#07111feb; text-align:center; pointer-events:none; } .instruction b { color:#efbb58; font:700 1.1rem 'Space Mono'; } .instruction button, .dice-tray button { border:1px solid #6fd4e8; border-radius:6px; background:#17384c; color:white; font-weight:700; pointer-events:auto; }
   .action-strip { position:absolute; z-index:12; left:50%; bottom:11vh; display:flex; align-items:center; gap:8px; padding:10px 16px; transform:translateX(-50%); border:1px solid #efbb58; border-radius:10px 10px 0 0; background:#071421f5; } .action-strip.far-actions { top:11vh; bottom:auto; transform:translateX(-50%) rotate(180deg); border-radius:0 0 10px 10px; } .action-strip button { display:flex; align-items:center; gap:5px; min-height:52px; border:1px solid #6fd4e8; border-radius:6px; background:#133247; color:white; text-transform:capitalize; } .action-strip img { width:30px; height:30px; object-fit:contain; }
   .dice-tray { position:absolute; z-index:9; left:50%; top:50%; display:grid; gap:12px; justify-items:center; min-width:44%; padding:18px; transform:translate(-50%,-50%) rotate(calc(-1 * var(--view-rotation))); border:1px solid #efbb58; border-radius:12px; background:#07111ff5; } .dice-tray p { margin:0; font-weight:700; } .dice { display:flex; align-items:center; gap:10px; } .dice img { width:clamp(38px,4vw,72px); aspect-ratio:1; object-fit:contain; } .dice i { width:2px; height:55px; margin:0 8px; background:#78929c; }
   .end-round { position:absolute; z-index:12; left:50%; bottom:calc(11vh + 30px); transform:translateX(-50%); border:1px solid #efbb58; border-radius:7px; padding:10px 18px; background:#a85e1e; color:white; font-weight:700; }
