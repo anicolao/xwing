@@ -21,6 +21,7 @@
   {#if ship.focus}<img class="token focus" src={`${assets}/assets/icons/token-force.png`} alt="Focus" />{/if}
   {#if ship.evade}<img class="token evade" src={`${assets}/assets/icons/action-evade.png`} alt="Evade" />{/if}
   {#if ship.stress}<img class="token stress" src={`${assets}/assets/icons/token-stress.png`} alt="Stress" />{/if}
+  {#if ship.damage.length}<span class="damage" aria-label={`${ship.damage.length} damage cards`}>{ship.damage.length}</span>{/if}
 </button>
 
 <style>
@@ -35,6 +36,7 @@
   .label { top:90%; font-weight:700; } .vitals { top:111%; color:#dce8ed; }
   .token { position:absolute; width:36%; height:36%; object-fit:contain; filter:drop-shadow(0 2px 3px #000); transform:rotate(calc(-1 * var(--angle))); }
   .focus { right:-16%; top:2%; } .evade { right:-16%; top:36%; } .stress { left:-16%; top:2%; }
+  .damage { position:absolute; right:-14%; bottom:-12%; display:grid; place-items:center; width:32%; aspect-ratio:.7; border:1px solid #e47562; border-radius:2px; background:#8f2f2f; color:white; font-weight:700; transform:rotate(calc(-1 * var(--angle))); }
   .destroyed { opacity:.3; filter:grayscale(1); }
   @keyframes pulse { 50% { transform:scale(1.08); opacity:.65; } }
   @media (prefers-reduced-motion: reduce) { button.active::before, button.selectable::before { animation:none; } }

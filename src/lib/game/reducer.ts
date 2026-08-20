@@ -26,6 +26,11 @@ const nextActivation = (state: GameState) => {
 function resolveDamage(state: GameState) {
   if (!state.attack) return;
   const defender = state.ships[state.attack.defenderId]!;
+  const attacker = state.ships[state.attack.attackerId]!;
+  if (attacker.focus && state.attack.attack.includes('focus')) {
+    state.attack.attack = state.attack.attack.map((face) => face === 'focus' ? 'hit' : face);
+    attacker.focus -= 1;
+  }
   const hits = state.attack.attack.filter((face) => face === 'hit' || face === 'critical').length;
   const evades = state.attack.defense.filter((face) => face === 'evade').length + Math.min(defender.evade, 1);
   let remaining = Math.max(0, hits - evades);
@@ -35,7 +40,7 @@ function resolveDamage(state: GameState) {
   for (let index = 0; index < remaining; index += 1) {
     const faceup = state.attack.attack.includes('critical') && index === remaining - 1;
     defender.hull -= 1;
-    defender.damage.push({ id: `damage-${state.round}-${defender.id}-${defender.damage.length + 1}`, faceup, title: faceup ? 'Direct Hit' : 'Hull damage' });
+    defender.damage.push({ id: `damage-${state.round}-${defender.id}-${defender.damage.length + 1}`, faceup, title: faceup ? 'Structural Damage' : 'Hull damage' });
   }
   defender.destroyed = defender.hull <= 0;
 }

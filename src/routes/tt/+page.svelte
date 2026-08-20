@@ -45,6 +45,7 @@
   function roll() { perform(() => appendEvent({ type: 'engagement/rolled', actor: 'table', payload: {} }), 'Dice rolled from the committed seed.'); }
   function resolveAttack() { perform(() => appendEvent({ type: 'engagement/resolved', actor: 'table', payload: {} }), 'Results neutralized and damage applied.'); }
   function endRound() { perform(() => appendEvent({ type: 'round/ended', actor: 'table', payload: {} }), 'End phase resolved.'); }
+  function rematch() { perform(() => appendEvent({ type: 'game/rematched', actor: 'table', payload: { seed: 0x5857494e + game.revision } }), 'Rematch opened with a new deterministic seed.'); }
 
   const activeShip = $derived(game.activeShipId ? game.ships[game.activeShipId] : undefined);
   const activeManifest = $derived(activeShip ? shipById(activeShip.id) : undefined);
@@ -71,6 +72,7 @@
     <p class="phase">{game.phase}</p>
     <p>Round {game.round || '—'}</p>
     <p class="rules">FFG 2E<br />Rules 1.3.2</p>
+    <a class="replay-link" href={`${base}/replay?room=${ROOM_ID}`}>Replay</a>
     <button class="rotate" onclick={() => rotation = (rotation + 90) % 360} aria-label="Rotate table view">↻ {rotation}°</button>
   </aside>
 
@@ -147,7 +149,7 @@
     </nav>
   {/if}
   {#if game.phase === 'engagement' && game.pending === 'end'}<button class="end-round" onclick={endRound}>Resolve End phase</button>{/if}
-  {#if game.phase === 'finished'}<div class="result"><b>{game.winner === 'draw' ? 'DRAW' : `${game.winner?.toUpperCase()} VICTORY`}</b><span>The event history is complete.</span></div>{/if}
+  {#if game.phase === 'finished'}<div class="result"><b>{game.winner === 'draw' ? 'DRAW' : `${game.winner?.toUpperCase()} VICTORY`}</b><span>The event history is complete.</span><a href={`${base}/replay?room=${ROOM_ID}`}>Review replay</a><button onclick={rematch}>Open rematch</button></div>{/if}
   <p class="announcement" role="status">{notice}</p>
 </main>
 
@@ -165,6 +167,7 @@
   .left { grid-area:left; border-right:1px solid; } .right { grid-area:right; border-left:1px solid; }
   .wordmark { font:700 clamp(17px,1.4vw,34px) 'Space Mono'; letter-spacing:.18em; } .phase { margin-top:5vh; color:#efbb58; font:700 clamp(18px,1.5vw,36px) 'Space Mono'; text-transform:uppercase; } .rules { position:absolute; bottom:15vh; color:#7f9ca7; line-height:1.6; }
   .rotate { position:absolute; bottom:12vh; left:18px; }
+  .replay-link { display:inline-block; margin-top:16px; color:#6fd4e8; font-weight:700; }
   .right h2 { color:#6fd4e8; font:700 clamp(13px,1vw,24px) 'Space Mono'; letter-spacing:.1em; } .right ol { display:grid; gap:16px; padding-left:22px; color:#b8cbd2; font-size:clamp(12px,.9vw,21px); }
   .battlefield { position:relative; grid-area:board; align-self:center; justify-self:center; width:min(100%,78vh); aspect-ratio:1; overflow:hidden; border:2px solid #7bc9d688; border-radius:4px; background:#061323; box-shadow:inset 0 0 80px #000,0 0 36px #4db6cc22; transition:transform .45s ease; }
   .grid { position:absolute; inset:0; opacity:.25; background-image:linear-gradient(#69bbca44 1px,transparent 1px),linear-gradient(90deg,#69bbca44 1px,transparent 1px); background-size:10% 10%; }
@@ -176,7 +179,7 @@
   .action-strip { position:absolute; z-index:12; left:50%; bottom:11vh; display:flex; align-items:center; gap:8px; padding:10px 16px; transform:translateX(-50%); border:1px solid #efbb58; border-radius:10px 10px 0 0; background:#071421f5; } .action-strip.far-actions { top:11vh; bottom:auto; transform:translateX(-50%) rotate(180deg); border-radius:0 0 10px 10px; } .action-strip button { display:flex; align-items:center; gap:5px; min-height:52px; border:1px solid #6fd4e8; border-radius:6px; background:#133247; color:white; text-transform:capitalize; } .action-strip img { width:30px; height:30px; object-fit:contain; }
   .dice-tray { position:absolute; z-index:9; left:50%; top:50%; display:grid; gap:12px; justify-items:center; min-width:44%; padding:18px; transform:translate(-50%,-50%) rotate(calc(-1 * var(--view-rotation))); border:1px solid #efbb58; border-radius:12px; background:#07111ff5; } .dice-tray p { margin:0; font-weight:700; } .dice { display:flex; align-items:center; gap:10px; } .dice img { width:clamp(38px,4vw,72px); aspect-ratio:1; object-fit:contain; } .dice i { width:2px; height:55px; margin:0 8px; background:#78929c; }
   .end-round { position:absolute; z-index:12; left:50%; bottom:calc(11vh + 30px); transform:translateX(-50%); border:1px solid #efbb58; border-radius:7px; padding:10px 18px; background:#a85e1e; color:white; font-weight:700; }
-  .result { position:absolute; z-index:15; left:50%; top:50%; display:grid; gap:8px; padding:40px 70px; transform:translate(-50%,-50%); border:2px solid #efbb58; border-radius:14px; background:#07111ff5; text-align:center; } .result b { color:#efbb58; font:700 2rem 'Space Mono'; }
+  .result { position:absolute; z-index:15; left:50%; top:50%; display:grid; gap:12px; padding:40px 70px; transform:translate(-50%,-50%); border:2px solid #efbb58; border-radius:14px; background:#07111ff5; text-align:center; } .result b { color:#efbb58; font:700 2rem 'Space Mono'; } .result a { color:#6fd4e8; } .result button { border:1px solid #efbb58; border-radius:6px; background:#a85e1e; color:white; font-weight:700; }
   .announcement { position:absolute; z-index:10; left:50%; bottom:calc(11vh + 10px); margin:0; padding:7px 16px; transform:translateX(-50%); border-radius:30px; background:#081522dd; color:#cce7ec; font-size:clamp(12px,.8vw,18px); }
   @media (max-aspect-ratio: 4/3) { main::before { position:fixed; z-index:50; inset:0; display:grid; place-items:center; padding:30px; background:#06101a; content:'Rotate this display to landscape for the shared tabletop.'; text-align:center; font-size:1.5rem; } }
   @media (prefers-reduced-motion:reduce) { .battlefield { transition:none; } }
