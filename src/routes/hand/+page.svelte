@@ -20,18 +20,28 @@
     seat = query.get('seat') === 'imperial' ? 'imperial' : 'rebel';
     room = query.get('room') ?? ROOM_ID;
     let unsubscribe = () => {};
+    const connectionFailed = (error: Error) => {
+      message = `Firestore connection failed: ${error.message}`;
+      ready = true;
+    };
     const connect = () => {
       unsubscribe();
-      unsubscribe = subscribeToRoom(room, (events) => {
-        projection = handProjection(replay(events).state, seat);
-        paired = projection.connected;
-        ready = true;
-      });
+      unsubscribe = subscribeToRoom(
+        room,
+        (events) => {
+          projection = handProjection(replay(events).state, seat);
+          paired = projection.connected;
+          ready = true;
+        },
+        connectionFailed
+      );
     };
-    void canAccessRoom(room).then((access) => {
-      if (access) connect();
-      else ready = true;
-    });
+    void canAccessRoom(room)
+      .then((access) => {
+        if (access) connect();
+        else ready = true;
+      })
+      .catch(connectionFailed);
     reconnect = connect;
     return () => unsubscribe();
   });

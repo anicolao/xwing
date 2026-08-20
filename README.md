@@ -19,19 +19,17 @@ dice, damage, round and victory handling, and prefix-by-prefix replay.
 
 Open the [shared tabletop](https://anicolao.github.io/xwing/pr1/tt) on the
 landscape display. Loading `/tt` immediately creates a room; scan the Rebel and
-Imperial QR codes with the matching phones. The preview room is stored in the
-tabletop tab when Firebase configuration is absent, so a credentials-free preview
-can be reviewed with table and phone tabs in one browser profile.
+Imperial QR codes with the matching phones.
 
 The production repository adapter uses anonymous Authentication and append-only
 Firestore rooms. The checked-in E2E story runs the ordinary client against Auth
 and Firestore emulators in three isolated browser contexts: one 3840×2160 table
 and two 393×852 phones. The deploy workflow reads the three
 `PUBLIC_FIREBASE_*` values from GitHub repository variables. Without those
-values, the app falls back to browser-local persistence, which is suitable only
-for a one-browser demo and cannot pair physical phones. Each QR URL contains
-only a random room ID and its seat. Possession of that tabletop-displayed URL
-allows the first anonymous device to claim the unoccupied seat.
+values, client startup fails explicitly: there is no browser-local game mode.
+Each QR URL contains only a random room ID and its seat. Possession of that
+tabletop-displayed URL allows the first anonymous device to claim the
+unoccupied seat.
 
 ## Project documents
 
@@ -122,8 +120,10 @@ nix develop --command bun run dev
 ```
 
 Copy `.env.example` to `.env` and provide a Firebase web application's public
-configuration to exercise cross-device development. `verify:change` needs no
-cloud project: it starts the Auth and Firestore emulators automatically.
+configuration for local development. The application requires either that
+production configuration or the explicit emulator setting; it has no offline
+or browser-local repository. `verify:change` needs no cloud project: it starts
+the Auth and Firestore emulators automatically.
 
 The production Firebase project is `xwing-20260820`; `.firebaserc` selects it
 for rules deployment. The Firestore database uses the `nam5` multi-region and

@@ -36,20 +36,30 @@
   onMount(() => {
     let unsubscribe = () => {};
     room = tableRoomId();
+    const connectionFailed = (error: Error) => {
+      notice = `Firestore connection failed: ${error.message}`;
+      ready = true;
+    };
     const connect = () => {
       unsubscribe();
-      unsubscribe = subscribeToRoom(room, (events) => {
-        game = publicProjection(replay(events).state);
-        ready = true;
-      });
+      unsubscribe = subscribeToRoom(
+        room,
+        (events) => {
+          game = publicProjection(replay(events).state);
+          ready = true;
+        },
+        connectionFailed
+      );
     };
     reconnect = connect;
-    void canAccessRoom(room).then((access) => {
-      if (access) {
-        setPairingLinks();
-        connect();
-      } else void openRoom();
-    });
+    void canAccessRoom(room)
+      .then((access) => {
+        if (access) {
+          setPairingLinks();
+          connect();
+        } else void openRoom();
+      })
+      .catch(connectionFailed);
     return () => unsubscribe();
   });
 

@@ -11,14 +11,22 @@
   let events = $state<GameEvent[]>([]);
   let cursor = $state(0);
   let ready = $state(false);
+  let failure = $state('');
   const snapshot = $derived(publicProjection(replay(events.slice(0, cursor)).state));
   onMount(() => {
     const room = new URLSearchParams(location.search).get('room') ?? ROOM_ID;
-    return subscribeToRoom(room, (next) => {
-      events = next;
-      cursor = next.length;
-      ready = true;
-    });
+    return subscribeToRoom(
+      room,
+      (next) => {
+        events = next;
+        cursor = next.length;
+        ready = true;
+      },
+      (error) => {
+        failure = `Firestore connection failed: ${error.message}`;
+        ready = true;
+      }
+    );
   });
 </script>
 
@@ -59,8 +67,9 @@
         </li>{/each}
     </ol>
   </aside>
-  <footer role="status">
-    {cursor === 0 ? 'Before the room opened.' : (snapshot.log.at(-1) ?? `${events[cursor - 1]?.type} accepted.`)}
+  <footer role={failure ? 'alert' : 'status'}>
+    {failure ||
+      (cursor === 0 ? 'Before the room opened.' : (snapshot.log.at(-1) ?? `${events[cursor - 1]?.type} accepted.`))}
   </footer>
 </main>
 
