@@ -2,7 +2,7 @@ import type { Action, Maneuver, Seat } from '$lib/manifests/teaching-duel';
 import type { Pose } from '$lib/geometry';
 import type { AttackFace, DefenseFace } from './prng';
 export type Phase = 'lobby' | 'setup' | 'planning' | 'activation' | 'engagement' | 'finished';
-export interface ShipState { id: string; seat: Seat; pose: Pose; hull: number; shields: number; stress: number; focus: number; evade: number; damage: { id: string; faceup: boolean; title: string }[]; maneuver?: Maneuver; revealed: boolean; activated: boolean; engaged: boolean; destroyed: boolean }
+export interface ShipState { id: string; seat: Seat; pose: Pose; hull: number; shields: number; stress: number; focus: number; evade: number; lock?: string; damage: { id: string; faceup: boolean; title: string }[]; maneuver?: Maneuver; revealed: boolean; activated: boolean; engaged: boolean; destroyed: boolean }
 export interface GameState {
   gameId: string; revision: number; phase: Phase; round: number; seed: number;
   seats: Record<Seat, { joined: boolean; ready: boolean; committed: boolean }>;
@@ -22,6 +22,7 @@ export type GameEvent =
   | EventBase<'activation/revealed', { shipId: string }>
   | EventBase<'activation/action', { shipId: string; action: Action | 'pass'; targetId?: string }>
   | EventBase<'engagement/targeted', { attackerId: string; defenderId: string }>
+  | EventBase<'engagement/passed', { attackerId: string }>
   | EventBase<'engagement/rolled', Record<string, never>>
   | EventBase<'engagement/resolved', Record<string, never>>
   | EventBase<'round/ended', Record<string, never>>

@@ -24,7 +24,7 @@
 </button>
 
 <style>
-  button { position:absolute; z-index:3; left:var(--x); top:var(--y); width:7.5%; min-width:52px; aspect-ratio:1; padding:0; border:0; background:transparent; transform:translate(-50%,-50%) rotate(var(--angle)); color:#fff; }
+  button { position:absolute; z-index:3; left:var(--x); top:var(--y); width:7.5%; min-width:52px; aspect-ratio:1; padding:0; border:0; background:transparent; transform:translate(-50%,-50%) rotate(var(--angle)); color:#fff; transition:left .7s cubic-bezier(.2,.7,.2,1),top .7s cubic-bezier(.2,.7,.2,1),transform .7s ease; }
   button:disabled { opacity:1; }
   button.selectable { cursor:pointer; }
   button.active::before, button.selectable::before { position:absolute; inset:-12%; border:3px solid #f4b64e; border-radius:50%; box-shadow:0 0 24px #f4b64e88; content:''; animation:pulse 1.6s ease-in-out infinite; }
@@ -38,4 +38,5 @@
   .destroyed { opacity:.3; filter:grayscale(1); }
   @keyframes pulse { 50% { transform:scale(1.08); opacity:.65; } }
   @media (prefers-reduced-motion: reduce) { button.active::before, button.selectable::before { animation:none; } }
+  @media (prefers-reduced-motion: reduce) { button { transition:none; } }
 </style>

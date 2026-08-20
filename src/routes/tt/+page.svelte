@@ -7,7 +7,7 @@
   import { publicProjection } from '$lib/game/selectors';
   import { replay } from '$lib/game/reducer';
   import type { GameState } from '$lib/game/model';
-  import { shipById, teachingDuel, type Seat } from '$lib/manifests/teaching-duel';
+  import { shipById, teachingDuel, type Action, type Seat } from '$lib/manifests/teaching-duel';
   import { appendEvent, createRoom, pairingCode, ROOM_ID, subscribeToRoom } from '$lib/repository/local-game';
 
   let game: GameState = $state(publicProjection(replay([]).state));
@@ -33,6 +33,21 @@
   function openRoom() { perform(() => createRoom(), 'Room FLIGHT7 opened. Pair each phone to its own seat.'); }
   function readySeat(seat: Seat) { perform(() => appendEvent({ type: 'player/ready', actor: 'table', payload: { seat } }), `${seat === 'rebel' ? 'Rebel' : 'Imperial'} squad ready.`); }
   function completeSetup() { perform(() => appendEvent({ type: 'setup/completed', actor: 'table', payload: {} }), 'Setup locked. Choose maneuvers privately on the phones.'); }
+  function reveal(shipId: string) { perform(() => appendEvent({ type: 'activation/revealed', actor: 'table', payload: { shipId } }), `${shipById(shipId)!.name} flew its revealed maneuver.`); }
+  function act(shipId: string, action: Action | 'pass') {
+    const enemy = Object.values(game.ships).find((ship) => ship.seat !== game.ships[shipId]!.seat && !ship.destroyed);
+    perform(() => appendEvent({ type: 'activation/action', actor: 'table', payload: { shipId, action, targetId: action === 'lock' ? enemy?.id : undefined } }), action === 'pass' ? 'Action passed.' : `${shipById(shipId)!.name} performed ${action}.`);
+  }
+  function target(defenderId: string) {
+    perform(() => appendEvent({ type: 'engagement/targeted', actor: 'table', payload: { attackerId: game.activeShipId!, defenderId } }), `${shipById(defenderId)!.name} targeted. Confirm the firing solution.`);
+  }
+  function passAttack() { perform(() => appendEvent({ type: 'engagement/passed', actor: 'table', payload: { attackerId: game.activeShipId! } }), 'No attack. Next ship engages.'); }
+  function roll() { perform(() => appendEvent({ type: 'engagement/rolled', actor: 'table', payload: {} }), 'Dice rolled from the committed seed.'); }
+  function resolveAttack() { perform(() => appendEvent({ type: 'engagement/resolved', actor: 'table', payload: {} }), 'Results neutralized and damage applied.'); }
+  function endRound() { perform(() => appendEvent({ type: 'round/ended', actor: 'table', payload: {} }), 'End phase resolved.'); }
+
+  const activeShip = $derived(game.activeShipId ? game.ships[game.activeShipId] : undefined);
+  const activeManifest = $derived(activeShip ? shipById(activeShip.id) : undefined);
 </script>
 
 <svelte:head><title>X-Wing shared tabletop</title></svelte:head>
@@ -65,7 +80,12 @@
       <img class="obstacle" style={`--ox:${[20,43,69,29,58,78][index]}%;--oy:${[29,19,35,64,75,58][index]}%;--or:${index * 31}deg`} src={`${assets}/assets/${obstacle}`} alt={`Obstacle ${index + 1}`} />
     {/each}
     {#each Object.values(game.ships) as ship}
-      <ShipPiece {ship} active={ship.id === game.activeShipId} />
+      <ShipPiece
+        {ship}
+        active={ship.id === game.activeShipId}
+        selectable={(game.phase === 'activation' && game.pending === 'reveal' && ship.id === game.activeShipId) || (game.phase === 'engagement' && game.pending === 'target' && ship.seat !== activeShip?.seat && !ship.destroyed)}
+        onclick={() => game.phase === 'activation' ? reveal(ship.id) : target(ship.id)}
+      />
     {/each}
     {#if game.phase === 'lobby'}
       <div class="center-message">
@@ -78,6 +98,25 @@
       <div class="center-message compact"><h1>FORMATIONS READY</h1><p>Six obstacles and three ships are in legal teaching positions.</p><button class="primary" onclick={completeSetup}>Lock setup on table</button></div>
     {:else if game.phase === 'planning'}
       <div class="center-message compact"><h1>PLANNING</h1><p>Dials remain hidden. {game.seats.rebel.committed ? 'Rebel committed.' : 'Rebel choosing.'} {game.seats.imperial.committed ? 'Imperial committed.' : 'Imperial choosing.'}</p></div>
+    {:else if game.phase === 'activation' && game.pending === 'reveal'}
+      <div class="instruction"><b>REVEAL</b><span>Touch {activeManifest?.name} on the battlefield</span></div>
+    {:else if game.phase === 'engagement' && game.pending === 'target'}
+      <div class="instruction"><b>CHOOSE TARGET</b><span>Touch an enemy in arc, or pass</span><button onclick={passAttack}>Pass attack</button></div>
+    {/if}
+    {#if game.attack}
+      <div class="dice-tray" aria-label="Attack dice tray">
+        <p>{shipById(game.attack.attackerId)?.name} → {shipById(game.attack.defenderId)?.name}</p>
+        {#if game.pending === 'attack'}
+          <button class="primary" onclick={roll}>Roll attack and defense</button>
+        {:else}
+          <div class="dice">
+            {#each game.attack.attack as face}<img src={`${assets}/assets/icons/die-${face}.png`} alt={`Attack die ${face}`} />{/each}
+            <i></i>
+            {#each game.attack.defense as face}<img src={`${assets}/assets/icons/die-${face}.png`} alt={`Defense die ${face}`} />{/each}
+          </div>
+          <button onclick={resolveAttack}>Apply results</button>
+        {/if}
+      </div>
     {/if}
   </section>
 
@@ -96,6 +135,19 @@
       {#if game.seats.rebel.joined}<button onclick={() => readySeat('rebel')} disabled={game.seats.rebel.ready}>{game.seats.rebel.ready ? 'Squad ready' : 'Ready Rebel squad'}</button>{/if}
     {/if}
   </section>
+  {#if game.phase === 'activation' && game.pending === 'action' && activeShip && activeManifest}
+    <nav class:far-actions={activeShip.seat === 'imperial'} class="action-strip" aria-label={`${activeManifest.name} actions`}>
+      <strong>{activeManifest.name}</strong>
+      {#each activeManifest.actions as action}
+        <button onclick={() => act(activeShip!.id, action)} disabled={activeShip.stress > 0}>
+          <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />{action}
+        </button>
+      {/each}
+      <button onclick={() => act(activeShip!.id, 'pass')}>Pass</button>
+    </nav>
+  {/if}
+  {#if game.phase === 'engagement' && game.pending === 'end'}<button class="end-round" onclick={endRound}>Resolve End phase</button>{/if}
+  {#if game.phase === 'finished'}<div class="result"><b>{game.winner === 'draw' ? 'DRAW' : `${game.winner?.toUpperCase()} VICTORY`}</b><span>The event history is complete.</span></div>{/if}
   <p class="announcement" role="status">{notice}</p>
 </main>
 
@@ -120,6 +172,11 @@
   .center-message { position:absolute; z-index:5; left:50%; top:50%; display:grid; justify-items:center; width:min(78%,700px); padding:clamp(18px,3vw,50px); border:1px solid #6fd4e866; border-radius:14px; transform:translate(-50%,-50%) rotate(calc(-1 * var(--view-rotation))); background:#07111fee; text-align:center; box-shadow:0 20px 70px #000; }
   .center-message img { width:clamp(84px,10vw,200px); } .center-message h1 { margin:15px 0 4px; font:700 clamp(17px,1.8vw,40px) 'Space Mono'; letter-spacing:.08em; } .center-message p { margin:8px 0 18px; color:#b7cbd2; font-size:clamp(12px,1vw,23px); } .compact { width:min(65%,560px); padding:24px; }
   .primary { min-height:54px; background:#b66c22; border-color:#efbb58; font-size:1.08em; }
+  .instruction { position:absolute; z-index:6; left:50%; top:50%; display:grid; gap:7px; justify-items:center; padding:18px 28px; transform:translate(-50%,-50%) rotate(calc(-1 * var(--view-rotation))); border:1px solid #efbb58; border-radius:10px; background:#07111feb; text-align:center; } .instruction b { color:#efbb58; font:700 1.1rem 'Space Mono'; } .instruction button, .dice-tray button { border:1px solid #6fd4e8; border-radius:6px; background:#17384c; color:white; font-weight:700; }
+  .action-strip { position:absolute; z-index:12; left:50%; bottom:11vh; display:flex; align-items:center; gap:8px; padding:10px 16px; transform:translateX(-50%); border:1px solid #efbb58; border-radius:10px 10px 0 0; background:#071421f5; } .action-strip.far-actions { top:11vh; bottom:auto; transform:translateX(-50%) rotate(180deg); border-radius:0 0 10px 10px; } .action-strip button { display:flex; align-items:center; gap:5px; min-height:52px; border:1px solid #6fd4e8; border-radius:6px; background:#133247; color:white; text-transform:capitalize; } .action-strip img { width:30px; height:30px; object-fit:contain; }
+  .dice-tray { position:absolute; z-index:9; left:50%; top:50%; display:grid; gap:12px; justify-items:center; min-width:44%; padding:18px; transform:translate(-50%,-50%) rotate(calc(-1 * var(--view-rotation))); border:1px solid #efbb58; border-radius:12px; background:#07111ff5; } .dice-tray p { margin:0; font-weight:700; } .dice { display:flex; align-items:center; gap:10px; } .dice img { width:clamp(38px,4vw,72px); aspect-ratio:1; object-fit:contain; } .dice i { width:2px; height:55px; margin:0 8px; background:#78929c; }
+  .end-round { position:absolute; z-index:12; left:50%; bottom:calc(11vh + 30px); transform:translateX(-50%); border:1px solid #efbb58; border-radius:7px; padding:10px 18px; background:#a85e1e; color:white; font-weight:700; }
+  .result { position:absolute; z-index:15; left:50%; top:50%; display:grid; gap:8px; padding:40px 70px; transform:translate(-50%,-50%); border:2px solid #efbb58; border-radius:14px; background:#07111ff5; text-align:center; } .result b { color:#efbb58; font:700 2rem 'Space Mono'; }
   .announcement { position:absolute; z-index:10; left:50%; bottom:calc(11vh + 10px); margin:0; padding:7px 16px; transform:translateX(-50%); border-radius:30px; background:#081522dd; color:#cce7ec; font-size:clamp(12px,.8vw,18px); }
   @media (max-aspect-ratio: 4/3) { main::before { position:fixed; z-index:50; inset:0; display:grid; place-items:center; padding:30px; background:#06101a; content:'Rotate this display to landscape for the shared tabletop.'; text-align:center; font-size:1.5rem; } }
   @media (prefers-reduced-motion:reduce) { .battlefield { transition:none; } }

@@ -85,13 +85,22 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       const ship = state.ships[event.payload.shipId]; const manifest = shipById(event.payload.shipId);
       if (event.actor !== 'table' || state.phase !== 'activation' || state.pending !== 'action' || ship?.id !== state.activeShipId) return reject('This ship cannot act now.');
       if (event.payload.action !== 'pass' && (!manifest?.actions.includes(event.payload.action) || ship.stress > 0)) return reject('That action is not legal.');
-      if (event.payload.action === 'focus') ship.focus += 1; if (event.payload.action === 'evade') ship.evade += 1;
+      if (event.payload.action === 'focus') ship.focus += 1;
+      if (event.payload.action === 'evade') ship.evade += 1;
+      if (event.payload.action === 'lock' && event.payload.targetId) ship.lock = event.payload.targetId;
+      if (event.payload.action === 'barrel-roll') ship.pose.x += ship.pose.x < 45_720 ? 4_000 : -4_000;
       ship.activated = true; nextActivation(state); break;
     }
     case 'engagement/targeted': {
       const attacker = state.ships[event.payload.attackerId]; const defender = state.ships[event.payload.defenderId]; const range = attacker && defender ? rangeBetween(attacker.pose, defender.pose) : 4;
       if (event.actor !== 'table' || state.phase !== 'engagement' || attacker?.id !== state.activeShipId || !defender || attacker.seat === defender.seat || range < 1 || range > 3 || !isInFrontArc(attacker.pose, defender.pose)) return reject('Target must be an enemy in the front arc at range 1–3.');
       state.attack = { attackerId: attacker.id, defenderId: defender.id, attack: [], defense: [] }; state.pending = 'attack'; break;
+    }
+    case 'engagement/passed': {
+      const attacker = state.ships[event.payload.attackerId];
+      if (event.actor !== 'table' || state.phase !== 'engagement' || state.pending !== 'target' || attacker?.id !== state.activeShipId) return reject('This ship cannot pass now.');
+      attacker.engaged = true;
+      const next = engagementOrder(state)[0]; state.activeShipId = next?.id; state.pending = next ? 'target' : 'end'; break;
     }
     case 'engagement/rolled': {
       if (event.actor !== 'table' || state.phase !== 'engagement' || state.pending !== 'attack' || !state.attack) return reject('No attack is ready to roll.');
