@@ -20,6 +20,7 @@
 
 <main
   data-status={ready ? 'ready' : 'loading'}
+  data-e2e-layout
   style={`--starfield: url('${asset('starfield.webp')}')`}
 >
   <div class="space" aria-hidden="true"></div>
@@ -52,7 +53,11 @@
       </nav>
     </div>
 
-    <div class="tableau" aria-label="A T-65 X-wing and two TIE fighters approach maneuver dials">
+    <div
+      class="tableau"
+      data-e2e-ignore-layout
+      aria-label="A T-65 X-wing and two TIE fighters approach maneuver dials"
+    >
       <div class="orbit orbit-one"></div>
       <div class="orbit orbit-two"></div>
       <img class="dial" src={asset('maneuver-dial-back.webp')} alt="Original circular maneuver dial artwork" />

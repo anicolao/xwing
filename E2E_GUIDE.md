@@ -66,10 +66,11 @@ tests/e2e/
 ```
 
 The scenario README is generated from the spec's title, purpose, steps,
-verification labels, and screenshots. Commit reviewed walkthroughs and
-baselines with the feature. Do not combine unrelated rules to avoid adding a
-scenario, or split a vertical feature into backend-only and frontend-only E2E
-tests.
+verification labels, and screenshots. It must embed and directly link every
+checked-in phone and desktop baseline for both the macOS development and Linux
+CI renderers. Commit reviewed walkthroughs and baselines with the feature. Do
+not combine unrelated rules to avoid adding a scenario, or split a vertical
+feature into backend-only and frontend-only E2E tests.
 
 ## Required structure
 
@@ -88,9 +89,10 @@ Each scenario must:
 10. leave no `.only`, retries, or silently updated snapshots in CI.
 
 Screenshots are evidence after semantic assertions, not the assertion itself.
-Baseline changes require visual review. Animations and carets are disabled;
-fonts, locale, timezone, device scale, viewport, and rendering flags are fixed
-in `playwright.config.ts`.
+Every comparison uses `maxDiffPixels: 0`; baseline changes require explicit
+visual review. Animations and carets are disabled; fonts, locale, timezone,
+device scale, viewport, and rendering flags are fixed in
+`playwright.config.ts`.
 
 ## Browser contexts and viewports
 
