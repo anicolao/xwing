@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#07111f" />
+    <meta
+      name="description"
+      content="An unofficial realtime browser implementation of X-Wing Second Edition."
+    />
+    <meta name="application-name" content="X-Wing" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="X-Wing" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="icon" href="./icon.svg" />
+    <link rel="apple-touch-icon" href="./icon.svg" />
+    <link href="./_app/immutable/entry/start.uE-SoQHG.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/c9aDBZ4K.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/k6Qgw9Tb.js" rel="modulepreload">
+		<link href="./_app/immutable/entry/app.BVqDvHll.js" rel="modulepreload">
+		<link href="./_app/immutable/chunks/xihTtKlq.js" rel="modulepreload">
+		<link href="./_app/immutable/nodes/0.GLDQHuTz.js" rel="modulepreload">
+		<link href="./_app/immutable/nodes/2.BWiPNE2E.js" rel="modulepreload">
+		
+		<link href="./_app/immutable/assets/2.BsTtrqv9.css" rel="stylesheet">
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <div style="display: contents">
+			<script>
+				{
+					__sveltekit_e94pqz = {
+						base: new URL(".", location).pathname.slice(0, -1),
+						assets: "/xwing/pr1"
+					};
+
+					const element = document.currentScript.parentElement;
+
+					Promise.all([
+						import("./_app/immutable/entry/start.uE-SoQHG.js"),
+						import("./_app/immutable/entry/app.BVqDvHll.js")
+					]).then(([kit, app]) => {
+						kit.start(app, element);
+					});
+				}
+			</script>
+		</div>
+  </body>
+</html>
