@@ -89,8 +89,7 @@ export async function readEvents(roomId = ROOM_ID): Promise<GameEvent[]> {
 export async function appendEvent(event: EventInput, roomId = ROOM_ID): Promise<GameEvent> {
   if (!useFirestore) {
     const events = readLocal(roomId);
-    const sequence = events.length + 1;
-    const complete = { ...event, id: `${roomId}-${sequence}-${event.actor}`, sequence } as GameEvent;
+    const complete = { ...event, id: `${roomId}-${events.length + 1}`, sequence: events.length + 1 } as GameEvent;
     const projected = replay([...events, complete]);
     if (projected.diagnostics.length) throw new Error(projected.diagnostics.at(-1)!.message);
     localStorage.setItem(key(roomId), JSON.stringify([...events, complete]));
@@ -99,8 +98,7 @@ export async function appendEvent(event: EventInput, roomId = ROOM_ID): Promise<
   }
   const { db } = await remoteClient();
   const events = await readRemote(roomId);
-  const sequence = events.length + 1;
-  const complete = { ...event, id: `${roomId}-${sequence}-${event.actor}`, sequence } as GameEvent;
+  const complete = { ...event, id: `${roomId}-${events.length + 1}`, sequence: events.length + 1 } as GameEvent;
   const projected = replay([...events, complete]);
   if (projected.diagnostics.length) throw new Error(projected.diagnostics.at(-1)!.message);
   const serialized = JSON.parse(JSON.stringify(complete)) as GameEvent;
@@ -109,7 +107,8 @@ export async function appendEvent(event: EventInput, roomId = ROOM_ID): Promise<
     const room = await transaction.get(roomReference);
     if (!room.exists() || room.data().revision !== events.length)
       throw new Error('Room changed while this action was being accepted. Retry it.');
-    transaction.set(doc(db, 'games', roomId, 'events', complete.id), serialized);
+    const documentId = `${String(complete.sequence).padStart(8, '0')}-${complete.actor}`;
+    transaction.set(doc(db, 'games', roomId, 'events', documentId), serialized);
     transaction.update(roomReference, { revision: complete.sequence, updatedAt: Date.now() });
   });
   return complete;

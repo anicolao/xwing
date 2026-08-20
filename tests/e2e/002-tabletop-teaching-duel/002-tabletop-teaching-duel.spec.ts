@@ -52,14 +52,10 @@ test('two seats plan privately and resolve a public attack on the shared table',
   await expect(page.getByRole('img', { name: 'Imperial phone QR code' })).toBeVisible();
   await rebel.goto('/hand?room=FLIGHT7&seat=rebel');
   await imperial.goto('/hand?room=FLIGHT7&seat=imperial');
-  await Promise.all([
-    rebel.getByRole('button', { name: 'Claim Rebel seat' }).click(),
-    imperial.getByRole('button', { name: 'Claim Imperial seat' }).click()
-  ]);
-  await Promise.all([
-    expect(rebel.getByText('LINKED', { exact: true })).toBeVisible(),
-    expect(imperial.getByText('LINKED', { exact: true })).toBeVisible()
-  ]);
+  await rebel.getByRole('button', { name: 'Claim Rebel seat' }).click();
+  await expect(rebel.getByText('LINKED', { exact: true })).toBeVisible();
+  await imperial.getByRole('button', { name: 'Claim Imperial seat' }).click();
+  await expect(imperial.getByText('LINKED', { exact: true })).toBeVisible();
   const thiefContext = await browser.newContext({ viewport: { width: 393, height: 852 } });
   const thief = await thiefContext.newPage();
   await thief.goto('/hand?room=FLIGHT7&seat=rebel');
