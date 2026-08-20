@@ -266,6 +266,36 @@ describe('event reducer', () => {
     });
     expect(result.state.ships['red-five']!.activated).toBe(true);
   });
+  it('requires direct target-lock and barrel-roll choices', () => {
+    const state = createInitialState('duel');
+    state.phase = 'activation';
+    state.pending = 'action';
+    state.activeShipId = 'red-five';
+    state.revision = 10;
+    const noLockTarget = applyEvent(
+      state,
+      event({
+        id: 'e11',
+        type: 'activation/action',
+        actor: 'table',
+        sequence: 11,
+        payload: { shipId: 'red-five', action: 'lock' }
+      })
+    );
+    expect(noLockTarget.diagnostic?.message).toContain('Touch an enemy');
+    const rolled = applyEvent(
+      state,
+      event({
+        id: 'e11-roll',
+        type: 'activation/action',
+        actor: 'table',
+        sequence: 11,
+        payload: { shipId: 'red-five', action: 'barrel-roll', direction: 'right' }
+      })
+    );
+    expect(rolled.diagnostic).toBeUndefined();
+    expect(rolled.state.ships['red-five']!.pose.x).toBe(state.ships['red-five']!.pose.x + 4_000);
+  });
 });
 
 describe('standard damage deck', () => {

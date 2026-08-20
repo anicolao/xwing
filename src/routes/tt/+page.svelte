@@ -29,6 +29,7 @@
   let imperialUrl = $state('');
   let confirmConcession = $state<Seat | null>(null);
   let busy = $state(false);
+  let lockSourceId = $state<string | null>(null);
   let reconnect = () => {};
 
   onMount(() => {
@@ -88,17 +89,21 @@
       `${shipById(shipId)!.name} flew its revealed maneuver.`
     );
   }
-  function act(shipId: string, action: Action | 'pass') {
-    const enemy = Object.values(game.ships).find((ship) => ship.seat !== game.ships[shipId]!.seat && !ship.destroyed);
+  function act(shipId: string, action: Action | 'pass', targetId?: string, direction?: 'left' | 'right') {
+    lockSourceId = null;
     perform(
       () =>
         appendEvent({
           type: 'activation/action',
           actor: 'table',
-          payload: { shipId, action, targetId: action === 'lock' ? enemy?.id : undefined }
+          payload: { shipId, action, targetId, direction }
         }),
       action === 'pass' ? 'Action passed.' : `${shipById(shipId)!.name} performed ${action}.`
     );
+  }
+  function beginLock(shipId: string) {
+    lockSourceId = shipId;
+    notice = 'Touch the enemy ship that will receive the target lock.';
   }
   function repair(shipId: string, cardId: string, title: string) {
     perform(
@@ -289,11 +294,17 @@
           {ship}
           active={ship.id === game.activeShipId}
           selectable={(game.phase === 'activation' && game.pending === 'reveal' && ship.id === game.activeShipId) ||
+            (lockSourceId !== null && ship.seat !== game.ships[lockSourceId]?.seat && !ship.destroyed) ||
             (game.phase === 'engagement' &&
               game.pending === 'target' &&
               ship.seat !== activeShip?.seat &&
               !ship.destroyed)}
-          onclick={() => (game.phase === 'activation' ? reveal(ship.id) : target(ship.id))}
+          onclick={() =>
+            lockSourceId
+              ? act(lockSourceId, 'lock', ship.id)
+              : game.phase === 'activation'
+                ? reveal(ship.id)
+                : target(ship.id)}
         />{/if}
     {/each}
     {#if game.phase === 'setup' && nextPlacement}
@@ -427,9 +438,29 @@
     >
       <strong>{activeManifest.name}</strong>
       {#each activeManifest.actions as action}
-        <button onclick={() => act(activeShip!.id, action)} disabled={activeShip.stress > 0 || activeShip.skipAction}>
-          <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />{action}
-        </button>
+        {#if action === 'barrel-roll'}
+          <button
+            onclick={() => act(activeShip!.id, action, undefined, 'left')}
+            disabled={activeShip.stress > 0 || activeShip.skipAction}
+            aria-label="Barrel roll left"
+          >
+            <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />← roll
+          </button>
+          <button
+            onclick={() => act(activeShip!.id, action, undefined, 'right')}
+            disabled={activeShip.stress > 0 || activeShip.skipAction}
+            aria-label="Barrel roll right"
+          >
+            <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />roll →
+          </button>
+        {:else}
+          <button
+            onclick={() => (action === 'lock' ? beginLock(activeShip!.id) : act(activeShip!.id, action))}
+            disabled={activeShip.stress > 0 || activeShip.skipAction}
+          >
+            <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />{action}
+          </button>
+        {/if}
       {/each}
       {#each activeShip.damage.filter((card) => card.faceup && (card.id.startsWith('weapons-failure-') || card.id.startsWith('structural-damage-'))) as card}
         <button

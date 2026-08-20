@@ -80,7 +80,10 @@ export type GameEvent =
   | EventBase<'planning/assigned', { shipId: string; maneuverId: string }>
   | EventBase<'planning/committed', { seat: Seat }>
   | EventBase<'activation/revealed', { shipId: string }>
-  | EventBase<'activation/action', { shipId: string; action: Action | 'pass'; targetId?: string }>
+  | EventBase<
+      'activation/action',
+      { shipId: string; action: Action | 'pass'; targetId?: string; direction?: 'left' | 'right' }
+    >
   | EventBase<'damage/repaired', { shipId: string; cardId: string }>
   | EventBase<'engagement/targeted', { attackerId: string; defenderId: string }>
   | EventBase<'engagement/passed', { attackerId: string }>

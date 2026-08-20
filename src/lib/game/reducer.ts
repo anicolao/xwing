@@ -252,8 +252,16 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
         return reject('That action is not legal.');
       if (event.payload.action === 'focus') ship.focus += 1;
       if (event.payload.action === 'evade') ship.evade += 1;
-      if (event.payload.action === 'lock' && event.payload.targetId) ship.lock = event.payload.targetId;
-      if (event.payload.action === 'barrel-roll') ship.pose.x += ship.pose.x < 45_720 ? 4_000 : -4_000;
+      if (event.payload.action === 'lock') {
+        const target = event.payload.targetId ? state.ships[event.payload.targetId] : undefined;
+        if (!target || target.destroyed || target.seat === ship.seat || rangeBetween(ship.pose, target.pose) > 3)
+          return reject('Touch an enemy at range 0–3 to acquire a lock.');
+        ship.lock = target.id;
+      }
+      if (event.payload.action === 'barrel-roll') {
+        if (!event.payload.direction) return reject('Choose the left or right barrel-roll position.');
+        ship.pose.x += event.payload.direction === 'left' ? -4_000 : 4_000;
+      }
       ship.activated = true;
       nextActivation(state);
       break;
