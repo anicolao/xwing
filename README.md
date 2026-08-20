@@ -18,9 +18,9 @@ dice, damage, round and victory handling, and prefix-by-prefix replay.
 ## Play the teaching duel
 
 Open the [shared tabletop](https://anicolao.github.io/xwing/pr1/tt) on the
-landscape display. Create the room there, then scan the Rebel and Imperial
-pairing codes with the matching phones. The fixed preview room is stored in the
-browser when Firebase configuration is absent, so a credentials-free preview
+landscape display. Loading `/tt` immediately creates a room; scan the Rebel and
+Imperial pairing codes with the matching phones. The preview room is stored in the
+tabletop tab when Firebase configuration is absent, so a credentials-free preview
 can be reviewed with table and phone tabs in one browser profile.
 
 The production repository adapter now supports anonymous Authentication and

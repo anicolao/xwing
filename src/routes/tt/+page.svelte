@@ -14,7 +14,8 @@
     createRoom,
     pairingCode,
     ROOM_ID,
-    subscribeToRoom
+    subscribeToRoom,
+    tableRoomId
   } from '$lib/repository/local-game';
 
   let game: GameState = $state(publicProjection(replay([]).state));
@@ -30,22 +31,26 @@
   let confirmConcession = $state<Seat | null>(null);
   let busy = $state(false);
   let lockSourceId = $state<string | null>(null);
+  let room = $state(ROOM_ID);
   let reconnect = () => {};
 
   onMount(() => {
     let unsubscribe = () => {};
+    room = tableRoomId();
     const connect = () => {
       unsubscribe();
-      unsubscribe = subscribeToRoom(ROOM_ID, (events) => {
+      unsubscribe = subscribeToRoom(room, (events) => {
         game = publicProjection(replay(events).state);
         ready = true;
       });
     };
-    void canAccessRoom(ROOM_ID).then((access) => {
-      if (access) connect();
-      else ready = true;
-    });
     reconnect = connect;
+    void canAccessRoom(room).then((access) => {
+      if (access) {
+        restorePairingLinks();
+        connect();
+      } else void openRoom();
+    });
     return () => unsubscribe();
   });
 
@@ -62,30 +67,44 @@
     }
   }
 
+  function setPairingLinks(credentials: Record<Seat, { code: string; token: string }>) {
+    const route = `${location.origin}${base}/hand?room=${room}`;
+    rebelUrl = `${route}&seat=rebel&code=${credentials.rebel.code}&token=${encodeURIComponent(credentials.rebel.token)}`;
+    imperialUrl = `${route}&seat=imperial&code=${credentials.imperial.code}&token=${encodeURIComponent(credentials.imperial.token)}`;
+  }
+  function restorePairingLinks() {
+    const storageKey = `xwing:table:${room}:pairing`;
+    const saved = sessionStorage.getItem(storageKey);
+    if (!saved) return;
+    try {
+      setPairingLinks(JSON.parse(saved));
+    } catch {
+      sessionStorage.removeItem(storageKey);
+    }
+  }
   function openRoom() {
-    perform(async () => {
-      const credentials = await createRoom();
-      const route = `${location.origin}${base}/hand?room=${ROOM_ID}`;
-      rebelUrl = `${route}&seat=rebel&code=${credentials.rebel.code}&token=${encodeURIComponent(credentials.rebel.token)}`;
-      imperialUrl = `${route}&seat=imperial&code=${credentials.imperial.code}&token=${encodeURIComponent(credentials.imperial.token)}`;
+    return perform(async () => {
+      const credentials = await createRoom(room);
+      sessionStorage.setItem(`xwing:table:${room}:pairing`, JSON.stringify(credentials));
+      setPairingLinks(credentials);
       reconnect();
-    }, 'Room FLIGHT7 opened. Pair each phone to its own seat. Pairing links expire in ten minutes.');
+    }, `Room ${room} opened. Pair each phone to its own seat. Pairing links expire in ten minutes.`);
   }
   function readySeat(seat: Seat) {
     perform(
-      () => appendEvent({ type: 'player/ready', actor: 'table', payload: { seat } }),
+      () => appendEvent({ type: 'player/ready', actor: 'table', payload: { seat } }, room),
       `${seat === 'rebel' ? 'Rebel' : 'Imperial'} squad ready.`
     );
   }
   function placeSetupPiece(pieceId: string) {
     perform(
-      () => appendEvent({ type: 'setup/placed', actor: 'table', payload: { pieceId } }),
+      () => appendEvent({ type: 'setup/placed', actor: 'table', payload: { pieceId } }, room),
       'Placement accepted on the shared table.'
     );
   }
   function reveal(shipId: string) {
     perform(
-      () => appendEvent({ type: 'activation/revealed', actor: 'table', payload: { shipId } }),
+      () => appendEvent({ type: 'activation/revealed', actor: 'table', payload: { shipId } }, room),
       `${shipById(shipId)!.name} flew its revealed maneuver.`
     );
   }
@@ -93,11 +112,14 @@
     lockSourceId = null;
     perform(
       () =>
-        appendEvent({
-          type: 'activation/action',
-          actor: 'table',
-          payload: { shipId, action, targetId, direction }
-        }),
+        appendEvent(
+          {
+            type: 'activation/action',
+            actor: 'table',
+            payload: { shipId, action, targetId, direction }
+          },
+          room
+        ),
       action === 'pass' ? 'Action passed.' : `${shipById(shipId)!.name} performed ${action}.`
     );
   }
@@ -107,53 +129,57 @@
   }
   function repair(shipId: string, cardId: string, title: string) {
     perform(
-      () => appendEvent({ type: 'damage/repaired', actor: 'table', payload: { shipId, cardId } }),
+      () => appendEvent({ type: 'damage/repaired', actor: 'table', payload: { shipId, cardId } }, room),
       `${shipById(shipId)!.name} repaired ${title}.`
     );
   }
   function target(defenderId: string) {
     perform(
       () =>
-        appendEvent({
-          type: 'engagement/targeted',
-          actor: 'table',
-          payload: { attackerId: game.activeShipId!, defenderId }
-        }),
+        appendEvent(
+          {
+            type: 'engagement/targeted',
+            actor: 'table',
+            payload: { attackerId: game.activeShipId!, defenderId }
+          },
+          room
+        ),
       `${shipById(defenderId)!.name} targeted. Confirm the firing solution.`
     );
   }
   function passAttack() {
     perform(
-      () => appendEvent({ type: 'engagement/passed', actor: 'table', payload: { attackerId: game.activeShipId! } }),
+      () =>
+        appendEvent({ type: 'engagement/passed', actor: 'table', payload: { attackerId: game.activeShipId! } }, room),
       'No attack. Next ship engages.'
     );
   }
   function roll() {
     perform(
-      () => appendEvent({ type: 'engagement/rolled', actor: 'table', payload: {} }),
+      () => appendEvent({ type: 'engagement/rolled', actor: 'table', payload: {} }, room),
       'Dice rolled from the committed seed.'
     );
   }
   function modifyAttack(choice: 'focus' | 'force' | 'pass') {
     perform(
-      () => appendEvent({ type: 'engagement/attack-modified', actor: 'table', payload: { choice } }),
+      () => appendEvent({ type: 'engagement/attack-modified', actor: 'table', payload: { choice } }, room),
       choice === 'pass' ? 'Attacker passed modifications.' : `Attacker spent ${choice}.`
     );
   }
   function modifyDefense(choice: 'focus' | 'evade' | 'pass') {
     perform(
-      () => appendEvent({ type: 'engagement/defense-modified', actor: 'table', payload: { choice } }),
+      () => appendEvent({ type: 'engagement/defense-modified', actor: 'table', payload: { choice } }, room),
       choice === 'pass' ? 'Defender passed modifications.' : `Defender spent ${choice}.`
     );
   }
   function resolveAttack() {
     perform(
-      () => appendEvent({ type: 'engagement/resolved', actor: 'table', payload: {} }),
+      () => appendEvent({ type: 'engagement/resolved', actor: 'table', payload: {} }, room),
       'Results neutralized and damage applied.'
     );
   }
   function endRound() {
-    perform(() => appendEvent({ type: 'round/ended', actor: 'table', payload: {} }), 'End phase resolved.');
+    perform(() => appendEvent({ type: 'round/ended', actor: 'table', payload: {} }, room), 'End phase resolved.');
   }
   function concede(seat: Seat) {
     if (confirmConcession !== seat) {
@@ -162,14 +188,15 @@
       return;
     }
     perform(
-      () => appendEvent({ type: 'game/conceded', actor: 'table', payload: { seat } }),
+      () => appendEvent({ type: 'game/conceded', actor: 'table', payload: { seat } }, room),
       `${seat === 'rebel' ? 'Rebel' : 'Imperial'} squad conceded.`
     );
     confirmConcession = null;
   }
   function rematch() {
     perform(
-      () => appendEvent({ type: 'game/rematched', actor: 'table', payload: { seed: 0x5857494e + game.revision } }),
+      () =>
+        appendEvent({ type: 'game/rematched', actor: 'table', payload: { seed: 0x5857494e + game.revision } }, room),
       'Rematch opened with a new deterministic seed.'
     );
   }
@@ -265,7 +292,7 @@
     <p class="phase">{game.phase}</p>
     <p>Round {game.round || '—'}</p>
     <p class="rules">FFG 2E<br />Rules 1.3.2</p>
-    <a class="replay-link" href={`${base}/replay?room=${ROOM_ID}`}>Replay</a>
+    <a class="replay-link" href={`${base}/replay?room=${room}`}>Replay</a>
     <p class="view-readout">VIEW {Math.round(viewScale * 100)}% · {rotation}°</p>
   </aside>
 
@@ -322,9 +349,8 @@
     {#if game.phase === 'lobby'}
       <div class="center-message">
         <img src={`${assets}/assets/maneuver-dial-back.webp`} alt="Maneuver dial" />
-        <h1>{game.gameId === 'uncreated' ? 'OPEN A TEACHING DUEL' : 'PAIR BOTH PRIVATE HANDS'}</h1>
+        <h1>{game.gameId === 'uncreated' ? 'OPENING TABLETOP ROOM' : 'PAIR BOTH PRIVATE HANDS'}</h1>
         <p>Public play stays here. Only hidden maneuver choices move to a phone.</p>
-        {#if game.gameId === 'uncreated'}<button class="primary" onclick={openRoom}>Create tabletop room</button>{/if}
       </div>
     {:else if game.phase === 'setup'}
       <div class="instruction setup-instruction">
@@ -479,7 +505,7 @@
   {#if game.phase === 'finished'}<div class="result">
       <b>{game.winner === 'draw' ? 'DRAW' : `${game.winner?.toUpperCase()} VICTORY`}</b><span
         >The event history is complete.</span
-      ><a href={`${base}/replay?room=${ROOM_ID}`}>Review replay</a><button onclick={rematch}>Open rematch</button>
+      ><a href={`${base}/replay?room=${room}`}>Review replay</a><button onclick={rematch}>Open rematch</button>
     </div>{/if}
   <p class="announcement" role="status">{notice}</p>
 </main>

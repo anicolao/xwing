@@ -142,7 +142,7 @@ it complete.
 
 ### 002 — Create, join, and replay a room
 
-- The table creates one private room and displays distinct, short-lived pairing
+- Loading `/tt` creates one private room without a lobby action and displays distinct, short-lived pairing
   codes for the two opposing seats.
 - Two anonymous phone contexts pair to one seat each; the table shows stable
   seats, ruleset/manifests, readiness, and connection state through the real

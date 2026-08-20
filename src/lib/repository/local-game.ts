@@ -26,6 +26,7 @@ const channel = (roomId: string) => `xwing:room:${roomId}:changed`;
 const useFirestore = browser && (env.PUBLIC_FIREBASE_EMULATOR === 'true' || Boolean(env.PUBLIC_FIREBASE_API_KEY));
 
 export const ROOM_ID = 'FLIGHT7';
+const tableRoomKey = 'xwing:table-room';
 export const pairingCode: Record<Seat, string> = { rebel: 'RED-5', imperial: 'ONYX-2' };
 export interface PairingCredential {
   code: string;
@@ -37,6 +38,18 @@ type EventInput = GameEvent extends infer Event
     ? Omit<Event, 'id' | 'sequence'>
     : never
   : never;
+
+export function tableRoomId(): string {
+  if (!browser) return ROOM_ID;
+  const existing = sessionStorage.getItem(tableRoomKey);
+  if (existing) return existing;
+  const roomId =
+    env.PUBLIC_FIREBASE_EMULATOR === 'true'
+      ? ROOM_ID
+      : `FLIGHT-${crypto.randomUUID().replaceAll('-', '').slice(0, 8).toUpperCase()}`;
+  sessionStorage.setItem(tableRoomKey, roomId);
+  return roomId;
+}
 
 function readLocal(roomId = ROOM_ID): GameEvent[] {
   if (!browser) return [];

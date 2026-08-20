@@ -102,7 +102,7 @@ unavailable on the table.
 
 | Activity | Required surface | Phone responsibility |
 | --- | --- | --- |
-| Create room and choose the fixed scenario | Shared table | Scan a seat QR code and authenticate that seat. |
+| Automatically create the fixed-scenario room when `/tt` loads | Shared table | Scan a seat QR code and authenticate that seat. |
 | Ready state, obstacle placement, and ship placement | Shared table | Show connection state only. |
 | Choose, revise, and commit hidden maneuvers | Owning phone | Show only that seat's dials and commitment controls. |
 | Reveal and execute maneuvers | Shared table | Show a brief waiting state; do not duplicate controls. |

@@ -34,8 +34,14 @@ test('two seats plan privately and resolve a public attack on the shared table',
   );
 
   await page.goto('/tt');
-  await page.getByRole('button', { name: 'Create tabletop room' }).click();
   await expect(page.getByRole('heading', { name: 'PAIR BOTH PRIVATE HANDS' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Create tabletop room' })).toHaveCount(0);
+  await expect(page.getByRole('img', { name: 'Rebel phone pairing code' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Imperial phone pairing code' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'PAIR BOTH PRIVATE HANDS' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Rebel phone pairing code' })).toBeVisible();
+  await expect(page.getByRole('img', { name: 'Imperial phone pairing code' })).toBeVisible();
   await rebel.goto('/hand?room=FLIGHT7&seat=rebel&code=RED-5&token=e2e-rebel-claim-capability');
   await imperial.goto('/hand?room=FLIGHT7&seat=imperial&code=ONYX-2&token=e2e-imperial-claim-capability');
   await rebel.getByRole('button', { name: 'Claim Rebel seat' }).click();
