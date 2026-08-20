@@ -25,7 +25,7 @@
     <div class="grid"></div>
     {#each Object.values(snapshot.ships) as ship}<ShipPiece {ship} />{/each}
   </section>
-  <aside><h1>Event history</h1><input aria-label="Replay position" type="range" min="0" max={events.length} bind:value={cursor} /><div class="buttons"><button onclick={() => cursor = Math.max(0, cursor - 1)}>Previous</button><button onclick={() => cursor = Math.min(events.length, cursor + 1)}>Next</button></div>
+  <aside data-e2e-ignore-layout><h1>Event history</h1><input aria-label="Replay position" type="range" min="0" max={events.length} bind:value={cursor} /><div class="buttons"><button onclick={() => cursor = Math.max(0, cursor - 1)}>Previous</button><button onclick={() => cursor = Math.min(events.length, cursor + 1)}>Next</button></div>
     <ol>{#each events as event, index}<li class:current={index + 1 === cursor}><button onclick={() => cursor = index + 1}><b>{index + 1}. {event.type}</b><span>{event.actor}</span></button></li>{/each}</ol>
   </aside>
   <footer role="status">{cursor === 0 ? 'Before the room opened.' : snapshot.log.at(-1) ?? `${events[cursor - 1]?.type} accepted.`}</footer>

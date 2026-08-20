@@ -11,12 +11,14 @@ export interface StepOptions {
   description: string;
   verifications: Verification[];
   status?: string;
+  surfaces?: Array<{ id: string; label: string; page: Page }>;
 }
 
 interface DocStep {
   id: string;
   title: string;
   specs: string[];
+  surfaces?: Array<{ id: string; label: string }>;
 }
 
 const documentedProjects = [
@@ -48,12 +50,27 @@ export class TestStepHelper {
   async step(id: string, options: StepOptions) {
     for (const verification of options.verifications) await verification.check();
 
-    await expect(this.page.locator('[data-status]')).toHaveAttribute(
-      'data-status',
-      options.status ?? 'ready'
-    );
-    await this.page.mouse.move(0, 0);
-    await this.page.evaluate(async () => {
+    const surfaces = options.surfaces ?? [{ id: this.testInfo.project.name, label: this.testInfo.project.name, page: this.page }];
+    const paddedIndex = String(this.stepCount++).padStart(3, '0');
+    const normalizedId = id.replaceAll('_', '-');
+    const platform = process.platform === 'linux' ? '-linux' : '';
+    for (const surface of surfaces) {
+      await this.settle(surface.page, options.status ?? 'ready');
+      const filename = `${paddedIndex}-${normalizedId}-${surface.id}${platform}.png`;
+      await expect(surface.page).toHaveScreenshot(filename);
+    }
+    this.steps.push({
+      id: `${paddedIndex}-${normalizedId}`,
+      title: options.description,
+      specs: options.verifications.map(({ spec }) => spec),
+      surfaces: options.surfaces?.map(({ id: surfaceId, label }) => ({ id: surfaceId, label }))
+    });
+  }
+
+  private async settle(page: Page, status: string) {
+    await expect(page.locator('[data-status]')).toHaveAttribute('data-status', status);
+    await page.mouse.move(0, 0);
+    await page.evaluate(async () => {
       await document.fonts.ready;
       for (const animation of document.getAnimations()) {
         const timing = animation.effect?.getTiming();
@@ -98,18 +115,6 @@ export class TestStepHelper {
         }
       }
     });
-
-    const paddedIndex = String(this.stepCount++).padStart(3, '0');
-    const normalizedId = id.replaceAll('_', '-');
-    const platform = process.platform === 'linux' ? '-linux' : '';
-    const filename = `${paddedIndex}-${normalizedId}-${this.testInfo.project.name}${platform}.png`;
-
-    await expect(this.page).toHaveScreenshot(filename);
-    this.steps.push({
-      id: `${paddedIndex}-${normalizedId}`,
-      title: options.description,
-      specs: options.verifications.map(({ spec }) => spec)
-    });
   }
 
   generateDocs() {
@@ -118,7 +123,8 @@ export class TestStepHelper {
     let content = `# ${this.metadataTitle}\n\n${this.metadataDescription}\n\n`;
     for (const step of this.steps) {
       content += `## ${step.title}\n\n`;
-      for (const project of documentedProjects) {
+      const projects = step.surfaces ?? documentedProjects;
+      for (const project of projects) {
         content += `### ${project.label}\n\n`;
         for (const platform of documentedPlatforms) {
           const filename = `${step.id}-${project.id}${platform.suffix}.png`;
