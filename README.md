@@ -1,8 +1,8 @@
 # X-Wing
 
-This repository is the starting point for an unofficial, realtime,
-browser-based implementation of *Star Wars: X-Wing Second Edition*, the
-two-player tactical miniatures game published by Fantasy Flight Games.
+This repository contains an unofficial, realtime browser teaching duel based
+on *Star Wars: X-Wing Second Edition*, the two-player tactical miniatures game
+published by Fantasy Flight Games.
 
 The initial rules target is Fantasy Flight Games' final Second Edition
 [Rules Reference v1.3.2](https://images-cdn.fantasyflightgames.com/filer_public/47/f0/47f07217-1f06-4110-8823-3f4badda1acd/01_swzrulesreference_v132_updated-compressed.pdf),
@@ -10,8 +10,25 @@ effective October 12, 2021. Later Atomic Mass Games points, scenarios, errata,
 and tournament rules are a different, explicitly versioned compatibility
 target; they must not be mixed silently into the FFG ruleset.
 
-This first milestone contains product documentation, original art, and a
-deployable application shell. Gameplay begins with the next vertical slice.
+The playable slice uses one shared landscape table for every public action and
+one private phone hand per seat for maneuver planning. It includes a
+deterministic event reducer, fixed-point maneuver and combat geometry, seeded
+dice, damage, round and victory handling, and prefix-by-prefix replay.
+
+## Play the teaching duel
+
+Open the [shared tabletop](https://anicolao.github.io/xwing/pr1/tt) on the
+landscape display. Create the room there, then scan the Rebel and Imperial
+pairing codes with the matching phones. The fixed preview room is stored in the
+browser, so local review should open the table and both phone hands as tabs or
+windows in the same browser profile. The checked-in E2E story does exactly
+that at 3840×2160 plus two 393×852 phone viewports.
+
+The deployed preview intentionally uses the local repository adapter because
+this repository has no Firebase project credentials. The game and UI layers
+are separated from persistence, but cross-device production pairing remains
+dependent on provisioning the planned authenticated Firestore adapter. Do not
+mistake the short pairing code in this preview for a security boundary.
 
 ## Project documents
 
@@ -75,12 +92,15 @@ future randomized state. The ordinary client must preserve the physical
 game's information boundaries; cryptographic secrecy or server-authoritative
 validation is a separate future project.
 
-The repository includes a Nix-pinned SvelteKit/Bun scaffold, initial phone and
-desktop shell smoke coverage, and static GitHub Pages deployment. That smoke
-test protects the foundation; it is not the target gameplay layout. MVP work
-adds a shared-table route and a deliberately narrow private-hand route. Pull
-request `N` is retained at `https://anicolao.github.io/xwing/prN/`; the main
-branch is published at `https://anicolao.github.io/xwing/`.
+The repository includes the Nix-pinned client, `/tt` shared table, `/hand`
+private companion, `/replay` event inspector, pure tests, multi-surface browser
+coverage, and static GitHub Pages deployment. Pull request `N` is retained at
+`https://anicolao.github.io/xwing/prN/`; the main branch is published at
+`https://anicolao.github.io/xwing/`.
+
+The complete visual walkthrough—including every macOS and Linux zero-pixel
+baseline—is in
+[the tabletop teaching-duel E2E README](tests/e2e/002-tabletop-teaching-duel/README.md).
 
 ## Development
 

@@ -5,6 +5,20 @@ import { applyEvent, createInitialState, replay } from './reducer';
 import type { GameEvent } from './model';
 
 describe('fixed-point geometry', () => {
+  it('locks the reviewed T-65 and TIE/ln dial entries', () => {
+    expect(shipById('red-five')!.dial.map(({ id, difficulty }) => `${id}:${difficulty}`)).toEqual([
+      '1-straight:blue', '1-bank-left:blue', '1-bank-right:blue',
+      '2-straight:blue', '2-bank-left:blue', '2-bank-right:blue', '2-turn-left:white', '2-turn-right:white',
+      '3-straight:white', '3-bank-left:white', '3-bank-right:white', '3-turn-left:white', '3-turn-right:white',
+      '3-tallon-left:red', '3-tallon-right:red', '4-straight:white', '4-koiogran:red'
+    ]);
+    expect(shipById('onyx-one')!.dial.map(({ id, difficulty }) => `${id}:${difficulty}`)).toEqual([
+      '1-turn-left:white', '1-turn-right:white', '2-straight:blue', '2-bank-left:blue', '2-bank-right:blue',
+      '2-turn-left:white', '2-turn-right:white', '3-straight:blue', '3-bank-left:white', '3-bank-right:white',
+      '3-turn-left:white', '3-turn-right:white', '3-koiogran:red', '4-straight:white', '4-koiogran:red', '5-straight:white'
+    ]);
+  });
+
   it('moves and rotates a Koiogran maneuver deterministically', () => {
     const maneuver = shipById('red-five')!.dial.find((item) => item.id === '4-koiogran')!;
     expect(executeManeuver({ x: 40_000, y: 80_000, angle: 0 }, maneuver)).toEqual({ x: 40_000, y: 60_000, angle: 180_000 });

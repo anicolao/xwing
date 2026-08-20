@@ -52,6 +52,8 @@ These files are decorative pictures for those semantic choices:
 - [`turn-left.png`](static/assets/maneuvers/turn-left.png)
 - [`turn-right.png`](static/assets/maneuvers/turn-right.png)
 - [`koiogran.png`](static/assets/maneuvers/koiogran.png)
+- [`tallon-left.png`](static/assets/maneuvers/tallon-left.png)
+- [`tallon-right.png`](static/assets/maneuvers/tallon-right.png)
 - [`stationary.png`](static/assets/maneuvers/stationary.png)
 
 Each maneuver image is 440×440.
@@ -178,6 +180,28 @@ Style/medium: premium painted tabletop UI symbols, bold rounded cyan path with a
 Composition/framing: exact 4-column by 2-row atlas, square cells, one centered symbol per occupied cell, equal margins and line weights
 Color palette: graphite, midnight navy, muted cyan, warm amber
 Constraints: exactly seven symbols and one empty lower-right tile; no text, letters, numerals, logos, faction emblems, copied game glyphs, extra arrows, pseudo-text, or watermark
+```
+
+The reviewed T-65 dial requires two Tallon-roll bearings that were not in the
+original atlas. They were generated independently with the built-in image tool
+and then resized to the atlas's 440×440 production dimensions:
+
+```text
+Use case: stylized-concept
+Asset type: transparent square maneuver-symbol button artwork for a tabletop space tactics game
+Primary request: an original speed-3 [left/right] Tallon-roll maneuver symbol, shown as one bold luminous cyan flight path that curves sharply [left/right] and ends in a crisp perpendicular hooked arrow, unmistakably different from a bank, turn, or K-turn
+Scene/backdrop: genuinely transparent background
+Style/medium: polished raster game UI icon, subtle brushed-metal bevel and restrained cyan glow, matching a dark navy sci-fi tactical interface
+Composition/framing: centered, large, readable at 44 pixels, generous transparent padding, square composition
+Color palette: cyan, ice blue, tiny amber guide accent
+Constraints: one symbol only; transparent alpha; no letters, numbers, text, logo, faction emblem, ship, dial, border, card frame, or watermark; original design; strong silhouette
+```
+
+The generator rendered a checkerboard instead of alpha, so both accepted files
+received this targeted built-in edit:
+
+```text
+Use case: precise-object-edit. This is a production maneuver icon. Change only the checkerboard background: replace it completely with a uniform very dark navy (#07111f) square background, matching a dark sci-fi tabletop interface. Preserve the luminous cyan [left/right] Tallon-roll path, its exact silhouette, proportions, metal edge, glow, and small amber guide accents. No checkerboard, no transparency illusion, no text, no watermark.
 ```
 
 ### Obstacles

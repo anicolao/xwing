@@ -9,10 +9,10 @@ export function rotate(point: Point, angle: number): Point {
   const radians = (angle / FULL_TURN) * Math.PI * 2;
   return { x: Math.round(point.x * Math.cos(radians) - point.y * Math.sin(radians)), y: Math.round(point.x * Math.sin(radians) + point.y * Math.cos(radians)) };
 }
-const bearingTurn: Record<Bearing, number> = { straight: 0, 'bank-left': -45_000, 'bank-right': 45_000, 'turn-left': -90_000, 'turn-right': 90_000, koiogran: 180_000 };
+const bearingTurn: Record<Bearing, number> = { straight: 0, 'bank-left': -45_000, 'bank-right': 45_000, 'turn-left': -90_000, 'turn-right': 90_000, koiogran: 180_000, 'tallon-left': -90_000, 'tallon-right': 90_000 };
 export function executeManeuver(start: Pose, maneuver: Maneuver): Pose {
   const turn = bearingTurn[maneuver.bearing];
-  const curved = maneuver.bearing.startsWith('bank') || maneuver.bearing.startsWith('turn');
+  const curved = maneuver.bearing.startsWith('bank') || maneuver.bearing.startsWith('turn') || maneuver.bearing.startsWith('tallon');
   const delta = rotate({ x: 0, y: -(maneuver.speed + 1) * BASE_SIZE }, start.angle + (curved ? turn / 2 : 0));
   return { x: start.x + delta.x, y: start.y + delta.y, angle: normalizeAngle(start.angle + turn) };
 }

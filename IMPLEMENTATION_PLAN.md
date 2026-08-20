@@ -279,14 +279,18 @@ update state.
 - [x] Add the SvelteKit/Bun/Nix scaffold and accessible application shell.
 - [x] Add phone and desktop Playwright smoke coverage.
 - [x] Deploy verified main and retained PR-specific static builds.
-- [ ] Replace the generic shell with distinct `/tt` shared-table and `/hand`
+- [x] Replace the generic shell with distinct `/tt` shared-table and `/hand`
   private-companion routes, while retaining the shell smoke test as foundation
   coverage rather than the intended game UI.
-- [ ] Define table-created seat pairing: two short-lived seat QR codes,
-  single-seat claims, visible connection state, and explicit unpair/re-pair.
-- [ ] Add a Playwright harness with one 3840x2160 table context and two isolated
-  393x852 phone contexts.
-- [ ] Add formatting, unit-test, and Firestore emulator harnesses with one
+- [x] Define table-created pairing with two seat QR codes, single-seat claims,
+  and visible connection state.
+- [ ] Add short-lived claims and explicit unpair/re-pair.
+- [x] Add a Playwright story with one 3840x2160 table surface and two 393x852
+  phone surfaces.
+- [ ] Move those phones into isolated authenticated browser contexts when the
+  Firestore adapter replaces the local same-profile repository.
+- [x] Add unit tests to the repository-managed verification command.
+- [ ] Add formatting and Firestore emulator harnesses to the
   repository-managed verification command.
 
 Exit: a fresh clone can enter Nix, install locked dependencies, verify, build,

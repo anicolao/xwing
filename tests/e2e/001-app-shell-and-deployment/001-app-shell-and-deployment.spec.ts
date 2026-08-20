@@ -35,6 +35,8 @@ const generatedAssetPaths = [
     'koiogran',
     'stationary',
     'straight',
+    'tallon-left',
+    'tallon-right',
     'turn-left',
     'turn-right'
   ].map((name) => `assets/maneuvers/${name}.png`),

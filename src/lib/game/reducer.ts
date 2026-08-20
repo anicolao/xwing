@@ -6,7 +6,7 @@ import { rollAttack, rollDefense } from './prng';
 const initialShip = (id: string): ShipState => {
   const manifest = shipById(id)!;
   const pose = id === 'red-five' ? { x: 45_720, y: 80_000, angle: 0 } : id === 'onyx-one' ? { x: 36_000, y: 11_440, angle: 180_000 } : { x: 55_440, y: 11_440, angle: 180_000 };
-  return { id, seat: manifest.seat, pose, hull: manifest.hull, shields: manifest.shields, stress: 0, focus: 0, evade: 0, damage: [], revealed: false, activated: false, engaged: false, destroyed: false };
+  return { id, seat: manifest.seat, pose, hull: manifest.hull, shields: manifest.shields, force: manifest.force ?? 0, stress: 0, focus: 0, evade: 0, damage: [], revealed: false, activated: false, engaged: false, destroyed: false };
 };
 
 export const createInitialState = (gameId = 'uncreated', seed = 0x5857494e): GameState => ({
@@ -30,6 +30,10 @@ function resolveDamage(state: GameState) {
   if (attacker.focus && state.attack.attack.includes('focus')) {
     state.attack.attack = state.attack.attack.map((face) => face === 'focus' ? 'hit' : face);
     attacker.focus -= 1;
+  } else if (attacker.force && state.attack.attack.includes('focus')) {
+    const firstFocus = state.attack.attack.indexOf('focus');
+    state.attack.attack[firstFocus] = 'hit';
+    attacker.force -= 1;
   }
   const hits = state.attack.attack.filter((face) => face === 'hit' || face === 'critical').length;
   const evades = state.attack.defense.filter((face) => face === 'evade').length + Math.min(defender.evade, 1);
@@ -99,6 +103,7 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
     case 'engagement/targeted': {
       const attacker = state.ships[event.payload.attackerId]; const defender = state.ships[event.payload.defenderId]; const range = attacker && defender ? rangeBetween(attacker.pose, defender.pose) : 4;
       if (event.actor !== 'table' || state.phase !== 'engagement' || attacker?.id !== state.activeShipId || !defender || attacker.seat === defender.seat || range < 1 || range > 3 || !isInFrontArc(attacker.pose, defender.pose)) return reject('Target must be an enemy in the front arc at range 1–3.');
+      if (defender.id === 'red-five') defender.force = Math.min(shipById(defender.id)!.force ?? 0, defender.force + 1);
       state.attack = { attackerId: attacker.id, defenderId: defender.id, attack: [], defense: [] }; state.pending = 'attack'; break;
     }
     case 'engagement/passed': {
