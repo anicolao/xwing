@@ -38,6 +38,7 @@ One shared 4K table pairs two private hands, keeps both dial values off the publ
 
 - [x] Six production obstacles are visibly placed at their canonical positions
 - [x] The next legal ship position is a direct tabletop target for the correct seat
+- [x] Seat-relative rotate, zoom, reset, and keyboard pan change presentation without changing setup geometry
 - [x] Both private phones remain control-free during public setup
 
 ## Private planning is ready on the owning phones

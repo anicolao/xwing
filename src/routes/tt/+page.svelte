@@ -14,6 +14,10 @@
   let ready = $state(false);
   let notice = $state('Lay the display flat between both players.');
   let rotation = $state(0);
+  let viewScale = $state(1);
+  let panX = $state(0);
+  let panY = $state(0);
+  let drag = $state<{ pointerId: number; x: number; y: number } | null>(null);
   let rebelUrl = $state('');
   let imperialUrl = $state('');
   let confirmConcession = $state<Seat | null>(null);
@@ -52,6 +56,23 @@
     confirmConcession = null;
   }
   function rematch() { perform(() => appendEvent({ type: 'game/rematched', actor: 'table', payload: { seed: 0x5857494e + game.revision } }), 'Rematch opened with a new deterministic seed.'); }
+  function rotateView() { rotation = (rotation + 90) % 360; notice = `Table view rotated ${rotation} degrees. Rules geometry is unchanged.`; }
+  function zoomView(delta: number) { viewScale = Math.min(2, Math.max(.75, viewScale + delta)); notice = `Table view ${Math.round(viewScale * 100)} percent. Rules scale is unchanged.`; }
+  function centerView() { viewScale = 1; panX = 0; panY = 0; notice = 'Table view centered at 100 percent.'; }
+  function keyView(event: KeyboardEvent) {
+    if (event.key === '+' || event.key === '=') zoomView(.25);
+    else if (event.key === '-') zoomView(-.25);
+    else if (event.key === '0') centerView();
+    else if (event.key.startsWith('Arrow')) { panX += event.key === 'ArrowLeft' ? -40 : event.key === 'ArrowRight' ? 40 : 0; panY += event.key === 'ArrowUp' ? -40 : event.key === 'ArrowDown' ? 40 : 0; }
+    else return;
+    event.preventDefault();
+  }
+  function beginPan(event: PointerEvent) {
+    if ((event.target as Element).closest('button')) return;
+    drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY }; (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+  }
+  function movePan(event: PointerEvent) { if (drag?.pointerId === event.pointerId) { panX += event.clientX - drag.x; panY += event.clientY - drag.y; drag = { ...drag, x: event.clientX, y: event.clientY }; } }
+  function endPan(event: PointerEvent) { if (drag?.pointerId === event.pointerId) drag = null; }
 
   const activeShip = $derived(game.activeShipId ? game.ships[game.activeShipId] : undefined);
   const activeManifest = $derived(activeShip ? shipById(activeShip.id) : undefined);
@@ -59,8 +80,9 @@
 </script>
 
 <svelte:head><title>X-Wing shared tabletop</title></svelte:head>
+<svelte:window onkeydown={keyView} />
 
-<main data-status={ready ? 'ready' : 'loading'} data-e2e-layout style={`--starfield:url('${assets}/assets/starfield.webp');--view-rotation:${rotation}deg`}>
+<main data-status={ready ? 'ready' : 'loading'} data-e2e-layout data-view={`${rotation}:${viewScale}:${panX}:${panY}`} style={`--starfield:url('${assets}/assets/starfield.webp');--view-rotation:${rotation}deg;--view-scale:${viewScale};--pan-x:${panX}px;--pan-y:${panY}px`}>
   <div class="stars" aria-hidden="true"></div>
 
   <section class="edge far" aria-label="Imperial player edge">
@@ -73,6 +95,7 @@
       {#if game.seats.imperial.joined}<button onclick={() => readySeat('imperial')} disabled={game.seats.imperial.ready}>{game.seats.imperial.ready ? 'Squad ready' : 'Ready Imperial squad'}</button>{/if}
     {/if}
     {#if !['lobby', 'finished'].includes(game.phase)}<button class="concede" onclick={() => concede('imperial')}>{confirmConcession === 'imperial' ? 'Confirm Imperial concession' : 'Concede Imperial squad'}</button>{/if}
+    <nav class="view-controls" aria-label="Imperial table view"><button onclick={() => zoomView(-.25)} aria-label="Zoom out from Imperial edge">−</button><button onclick={centerView} aria-label="Center view from Imperial edge">◎</button><button onclick={() => zoomView(.25)} aria-label="Zoom in from Imperial edge">+</button><button onclick={rotateView} aria-label="Rotate from Imperial edge">↻</button></nav>
   </section>
 
   <aside class="rail left" aria-label="Game state">
@@ -81,10 +104,11 @@
     <p>Round {game.round || '—'}</p>
     <p class="rules">FFG 2E<br />Rules 1.3.2</p>
     <a class="replay-link" href={`${base}/replay?room=${ROOM_ID}`}>Replay</a>
-    <button class="rotate" onclick={() => rotation = (rotation + 90) % 360} aria-label="Rotate table view">↻ {rotation}°</button>
+    <p class="view-readout">VIEW {Math.round(viewScale * 100)}% · {rotation}°</p>
   </aside>
 
-  <section class="battlefield" aria-label="Three foot square play area" style={`transform:rotate(var(--view-rotation))`}>
+  <!-- svelte-ignore a11y_no_noninteractive_element_interactions (the spatial play surface supports direct pointer panning) -->
+  <section class="battlefield" role="application" aria-label="Three foot square play area" onpointerdown={beginPan} onpointermove={movePan} onpointerup={endPan} onpointercancel={endPan} style={`transform:translate(var(--pan-x),var(--pan-y)) scale(var(--view-scale)) rotate(var(--view-rotation))`}>
     <div class="grid" aria-hidden="true"></div>
     {#each setupOrder.filter((piece) => piece.kind === 'obstacle') as obstacle, index}
       {#if game.setupPlaced.includes(obstacle.id) || !['lobby', 'setup'].includes(game.phase)}<img class="obstacle" style={`--ox:${obstacle.x / 914.4}%;--oy:${obstacle.y / 914.4}%;--or:${index * 31}deg`} src={`${assets}/assets/${obstacle.asset}`} alt={`Obstacle ${index + 1}`} />{/if}
@@ -150,6 +174,7 @@
       {#if game.seats.rebel.joined}<button onclick={() => readySeat('rebel')} disabled={game.seats.rebel.ready}>{game.seats.rebel.ready ? 'Squad ready' : 'Ready Rebel squad'}</button>{/if}
     {/if}
     {#if !['lobby', 'finished'].includes(game.phase)}<button class="concede" onclick={() => concede('rebel')}>{confirmConcession === 'rebel' ? 'Confirm Rebel concession' : 'Concede Rebel squad'}</button>{/if}
+    <nav class="view-controls" aria-label="Rebel table view"><button onclick={() => zoomView(-.25)} aria-label="Zoom out from Rebel edge">−</button><button onclick={centerView} aria-label="Center view from Rebel edge">◎</button><button onclick={() => zoomView(.25)} aria-label="Zoom in from Rebel edge">+</button><button onclick={rotateView} aria-label="Rotate from Rebel edge">↻</button></nav>
   </section>
   {#if game.phase === 'activation' && game.pending === 'action' && activeShip && activeManifest}
     <nav class:far-actions={activeShip.seat === 'imperial'} class="action-strip" aria-label={`${activeManifest.name} actions`}>
@@ -175,12 +200,13 @@
   .edge-status { display:flex; align-items:center; gap:16px; letter-spacing:.12em; } .edge-status span:last-child { color:#8fb0ba; font-size:.75em; }
   .seat-mark { width:20px; height:20px; border:3px solid currentColor; transform:rotate(45deg); } .rebel { color:#efbb58; } .imperial { color:#66cde3; border-radius:50%; }
   .pair-card { display:flex; align-items:center; gap:12px; height:72px; } .pair-card :global(img) { width:64px; } .pair-card p { display:grid; margin:0; } .pair-card b { font:700 clamp(16px,1.2vw,30px) 'Space Mono'; letter-spacing:.14em; } .pair-card small { color:#9eb5bd; }
-  .edge button, .primary, .rotate { border:1px solid #6fd4e8; border-radius:7px; padding:9px 18px; color:#fff; background:#17364b; font-weight:700; cursor:pointer; }
+  .edge button, .primary { border:1px solid #6fd4e8; border-radius:7px; padding:9px 18px; color:#fff; background:#17364b; font-weight:700; cursor:pointer; }
+  .view-controls { display:flex; gap:5px; } .view-controls button { min-width:44px; min-height:44px; padding:7px; font-size:1.15em; }
   .edge button:disabled { border-color:#4eaa76; background:#153426; color:#b9e8cb; }
   .rail { z-index:3; padding:28px 20px; background:#07111fbb; border-color:#5ebcd033; }
   .left { grid-area:left; border-right:1px solid; } .right { grid-area:right; border-left:1px solid; }
   .wordmark { font:700 clamp(17px,1.4vw,34px) 'Space Mono'; letter-spacing:.18em; } .phase { margin-top:5vh; color:#efbb58; font:700 clamp(18px,1.5vw,36px) 'Space Mono'; text-transform:uppercase; } .rules { position:absolute; bottom:15vh; color:#7f9ca7; line-height:1.6; }
-  .rotate { position:absolute; bottom:12vh; left:18px; }
+  .view-readout { position:absolute; bottom:12vh; color:#8fb0ba; font:700 clamp(10px,.7vw,16px) 'Space Mono'; }
   .replay-link { display:inline-block; margin-top:16px; color:#6fd4e8; font-weight:700; }
   .right h2 { color:#6fd4e8; font:700 clamp(13px,1vw,24px) 'Space Mono'; letter-spacing:.1em; } .right ol { display:grid; gap:16px; padding-left:22px; color:#b8cbd2; font-size:clamp(12px,.9vw,21px); }
   .battlefield { position:relative; grid-area:board; align-self:center; justify-self:center; width:min(100%,78vh); aspect-ratio:1; overflow:hidden; border:2px solid #7bc9d688; border-radius:4px; background:#061323; box-shadow:inset 0 0 80px #000,0 0 36px #4db6cc22; transition:transform .45s ease; }
