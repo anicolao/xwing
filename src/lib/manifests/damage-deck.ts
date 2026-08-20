@@ -2,7 +2,12 @@ import { nextRandom } from '$lib/game/prng';
 import { MANIFEST_VERSION, RULESET_ID } from './teaching-duel';
 
 export type DamageType = 'pilot' | 'ship';
-export interface DamageCardDefinition { id: string; title: string; type: DamageType; count: number }
+export interface DamageCardDefinition {
+  id: string;
+  title: string;
+  type: DamageType;
+  count: number;
+}
 
 export const damageCards: DamageCardDefinition[] = [
   { id: 'blinded-pilot', title: 'Blinded Pilot', type: 'pilot', count: 2 },
@@ -22,19 +27,25 @@ export const damageCards: DamageCardDefinition[] = [
 ];
 
 export const damageDeckManifest = {
-  id: 'standard-damage-deck', sourceRuleset: RULESET_ID, manifestVersion: MANIFEST_VERSION,
-  provenance: ['FFG Second Edition Core Set standard damage deck'], reviewStatus: 'composition-reviewed', cards: damageCards
+  id: 'standard-damage-deck',
+  sourceRuleset: RULESET_ID,
+  manifestVersion: MANIFEST_VERSION,
+  provenance: ['FFG Second Edition Core Set standard damage deck'],
+  reviewStatus: 'composition-reviewed',
+  cards: damageCards
 } as const;
 
 export function createDamageDeck(seed: number): string[] {
   const deck = damageCards.flatMap((card) => Array.from({ length: card.count }, (_, copy) => `${card.id}-${copy + 1}`));
   let currentSeed = seed;
   for (let index = deck.length - 1; index > 0; index -= 1) {
-    const random = nextRandom(currentSeed); currentSeed = random.seed;
+    const random = nextRandom(currentSeed);
+    currentSeed = random.seed;
     const target = Math.floor(random.value * (index + 1));
     [deck[index], deck[target]] = [deck[target]!, deck[index]!];
   }
   return deck;
 }
 
-export const damageDefinition = (instanceId: string) => damageCards.find((card) => instanceId.startsWith(`${card.id}-`));
+export const damageDefinition = (instanceId: string) =>
+  damageCards.find((card) => instanceId.startsWith(`${card.id}-`));

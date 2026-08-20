@@ -292,7 +292,7 @@ update state.
 - [x] Add unit tests to the repository-managed verification command.
 - [x] Add the Firestore/Auth emulator harness to the repository-managed
   verification command.
-- [ ] Add a formatting gate to the repository-managed verification command.
+- [x] Add a formatting gate to the repository-managed verification command.
 
 Exit: a fresh clone can enter Nix, install locked dependencies, verify, build,
 and load the shared-table and private-hand routes locally and under a nested

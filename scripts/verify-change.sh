@@ -7,6 +7,7 @@ fi
 
 git diff --cached --check
 git diff --check
+bun run check:format
 bun run check:e2e-steps
 bun run check
 bun run check:workflow

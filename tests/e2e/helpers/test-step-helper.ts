@@ -50,7 +50,9 @@ export class TestStepHelper {
   async step(id: string, options: StepOptions) {
     for (const verification of options.verifications) await verification.check();
 
-    const surfaces = options.surfaces ?? [{ id: this.testInfo.project.name, label: this.testInfo.project.name, page: this.page }];
+    const surfaces = options.surfaces ?? [
+      { id: this.testInfo.project.name, label: this.testInfo.project.name, page: this.page }
+    ];
     const paddedIndex = String(this.stepCount++).padStart(3, '0');
     const normalizedId = id.replaceAll('_', '-');
     const platform = process.platform === 'linux' ? '-linux' : '';
@@ -138,9 +140,6 @@ export class TestStepHelper {
       content += `${step.specs.map((spec) => `- [x] ${spec}`).join('\n')}\n\n`;
     }
 
-    fs.writeFileSync(
-      path.join(path.dirname(this.testInfo.file), 'README.md'),
-      `${content.trimEnd()}\n`
-    );
+    fs.writeFileSync(path.join(path.dirname(this.testInfo.file), 'README.md'), `${content.trimEnd()}\n`);
   }
 }

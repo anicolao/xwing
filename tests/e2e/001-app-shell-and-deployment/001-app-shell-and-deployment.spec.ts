@@ -40,14 +40,9 @@ const generatedAssetPaths = [
     'turn-left',
     'turn-right'
   ].map((name) => `assets/maneuvers/${name}.png`),
-  ...[
-    'asteroid-01',
-    'asteroid-02',
-    'asteroid-03',
-    'debris-cloud-01',
-    'debris-cloud-02',
-    'debris-cloud-03'
-  ].map((name) => `assets/obstacles/${name}.png`)
+  ...['asteroid-01', 'asteroid-02', 'asteroid-03', 'debris-cloud-01', 'debris-cloud-02', 'debris-cloud-03'].map(
+    (name) => `assets/obstacles/${name}.png`
+  )
 ];
 
 test('application shell loads, hydrates, and serves its original assets', async ({ page }, testInfo) => {
@@ -75,9 +70,7 @@ test('application shell loads, hydrates, and serves its original assets', async 
         spec: 'The page exposes the stable X-Wing title and primary heading',
         check: async () => {
           await expect(page).toHaveTitle('X-Wing — Choose your maneuver');
-          await expect(page.getByRole('heading', { level: 1 })).toHaveText(
-            'Choose your maneuver.Own the outcome.'
-          );
+          await expect(page.getByRole('heading', { level: 1 })).toHaveText('Choose your maneuver.Own the outcome.');
         }
       },
       {
@@ -90,9 +83,9 @@ test('application shell loads, hydrates, and serves its original assets', async 
           await expect(page.getByText('Foundation preview')).toBeVisible();
           await expect(page.getByText('GPL-3.0-only')).toBeVisible();
           await expect(page.getByTestId('build-marker')).toHaveText('Build e2e-test');
-          await expect(
-            page.getByRole('navigation', { name: 'Project documentation' }).getByRole('link')
-          ).toHaveCount(3);
+          await expect(page.getByRole('navigation', { name: 'Project documentation' }).getByRole('link')).toHaveCount(
+            3
+          );
         }
       },
       {
@@ -102,9 +95,7 @@ test('application shell loads, hydrates, and serves its original assets', async 
           await expect(artwork).toHaveCount(4);
           await expect
             .poll(async () =>
-              artwork.evaluateAll((images) =>
-                images.every((image) => (image as HTMLImageElement).naturalWidth > 0)
-              )
+              artwork.evaluateAll((images) => images.every((image) => (image as HTMLImageElement).naturalWidth > 0))
             )
             .toBe(true);
         }
@@ -118,8 +109,7 @@ test('application shell loads, hydrates, and serves its original assets', async 
                 (path) =>
                   new Promise<{ path: string; loaded: boolean }>((resolve) => {
                     const image = new Image();
-                    image.onload = () =>
-                      resolve({ path, loaded: image.naturalWidth > 0 && image.naturalHeight > 0 });
+                    image.onload = () => resolve({ path, loaded: image.naturalWidth > 0 && image.naturalHeight > 0 });
                     image.onerror = () => resolve({ path, loaded: false });
                     image.src = new URL(path, document.baseURI).href;
                   })

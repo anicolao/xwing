@@ -15,5 +15,12 @@
 {/if}
 
 <style>
-  img, span { display: block; width: 100%; aspect-ratio: 1; border-radius: 0.5rem; background: #edf7f4; }
+  img,
+  span {
+    display: block;
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 0.5rem;
+    background: #edf7f4;
+  }
 </style>

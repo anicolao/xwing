@@ -34,8 +34,8 @@
       <p class="eyebrow">Tactical flight, rebuilt for the browser</p>
       <h1 id="hero-title">Choose your maneuver.<br /><span>Own the outcome.</span></h1>
       <p class="lede">
-        A deterministic two-player dogfight with private planning, exact geometry,
-        explainable rulings, and complete replay.
+        A deterministic two-player dogfight with private planning, exact geometry, explainable rulings, and complete
+        replay.
       </p>
 
       <div class="readiness">
@@ -53,11 +53,7 @@
       </nav>
     </div>
 
-    <div
-      class="tableau"
-      data-e2e-ignore-layout
-      aria-label="A T-65 X-wing and two TIE fighters approach maneuver dials"
-    >
+    <div class="tableau" data-e2e-ignore-layout aria-label="A T-65 X-wing and two TIE fighters approach maneuver dials">
       <div class="orbit orbit-one"></div>
       <div class="orbit orbit-two"></div>
       <img class="dial" src={asset('maneuver-dial-back.webp')} alt="Original circular maneuver dial artwork" />

@@ -49,22 +49,13 @@ const violations = specFiles.flatMap((file) => {
 
   const readme = readFileSync(readmePath, 'utf8');
   const screenshots = readdirSync(screenshotsDirectory).filter((name) => name.endsWith('.png'));
-  const documentedScreenshots = Array.from(
-    readme.matchAll(/\.\/screenshots\/([^\s)]+\.png)/g),
-    (match) => match[1]
-  );
+  const documentedScreenshots = Array.from(readme.matchAll(/\.\/screenshots\/([^\s)]+\.png)/g), (match) => match[1]);
   const documentationViolations = screenshots
     .filter((name) => !documentedScreenshots.includes(name))
-    .map(
-      (name) =>
-        `${relative(repositoryRoot, readmePath)}: must link screenshots/${basename(name)}`
-    );
+    .map((name) => `${relative(repositoryRoot, readmePath)}: must link screenshots/${basename(name)}`);
   const brokenLinks = documentedScreenshots
     .filter((name) => !existsSync(join(screenshotsDirectory, name)))
-    .map(
-      (name) =>
-        `${relative(repositoryRoot, readmePath)}: links missing screenshots/${basename(name)}`
-    );
+    .map((name) => `${relative(repositoryRoot, readmePath)}: links missing screenshots/${basename(name)}`);
 
   return [...sourceViolations, ...documentationViolations, ...brokenLinks];
 });
