@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { basename, dirname, join, relative } from 'node:path';
 
 const repositoryRoot = join(import.meta.dir, '..');
 const e2eRoot = join(repositoryRoot, 'tests', 'e2e');
@@ -33,10 +33,46 @@ if (specFiles.length === 0) {
 
 const violations = specFiles.flatMap((file) => {
   const source = readFileSync(file, 'utf8');
-  return requirements
+  const sourceViolations = requirements
     .filter(({ pattern }) => !pattern.test(source))
     .map(({ description }) => `${relative(repositoryRoot, file)}: must ${description}`);
+  const scenarioDirectory = dirname(file);
+  const readmePath = join(scenarioDirectory, 'README.md');
+  const screenshotsDirectory = join(scenarioDirectory, 'screenshots');
+
+  if (!existsSync(readmePath)) {
+    return [...sourceViolations, `${relative(repositoryRoot, file)}: missing generated README.md`];
+  }
+  if (!existsSync(screenshotsDirectory)) {
+    return [...sourceViolations, `${relative(repositoryRoot, file)}: missing screenshots directory`];
+  }
+
+  const readme = readFileSync(readmePath, 'utf8');
+  const screenshots = readdirSync(screenshotsDirectory).filter((name) => name.endsWith('.png'));
+  const documentedScreenshots = Array.from(
+    readme.matchAll(/\.\/screenshots\/([^\s)]+\.png)/g),
+    (match) => match[1]
+  );
+  const documentationViolations = screenshots
+    .filter((name) => !documentedScreenshots.includes(name))
+    .map(
+      (name) =>
+        `${relative(repositoryRoot, readmePath)}: must link screenshots/${basename(name)}`
+    );
+  const brokenLinks = documentedScreenshots
+    .filter((name) => !existsSync(join(screenshotsDirectory, name)))
+    .map(
+      (name) =>
+        `${relative(repositoryRoot, readmePath)}: links missing screenshots/${basename(name)}`
+    );
+
+  return [...sourceViolations, ...documentationViolations, ...brokenLinks];
 });
+
+const playwrightConfig = readFileSync(join(repositoryRoot, 'playwright.config.ts'), 'utf8');
+if (!/maxDiffPixels:\s*0\b/.test(playwrightConfig)) {
+  violations.push('playwright.config.ts: screenshot comparisons must set maxDiffPixels to 0');
+}
 
 if (violations.length > 0) {
   console.error('E2E step-helper convention violations:\n');
