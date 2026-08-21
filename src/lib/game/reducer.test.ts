@@ -155,6 +155,20 @@ describe('event reducer', () => {
     ];
     expect(replay(events)).toEqual(replay(structuredClone(events)));
   });
+  it('accepts a compatible config after Firestore reorders its map fields', () => {
+    const reordered = Object.fromEntries(Object.entries(GAME_CONFIG).reverse()) as unknown as typeof GAME_CONFIG;
+    const result = replay([
+      event({
+        id: 'e1',
+        type: 'game/created',
+        actor: 'table',
+        sequence: 1,
+        payload: { gameId: 'firestore-room', seed: 42, config: reordered }
+      })
+    ]);
+    expect(result.diagnostics).toEqual([]);
+    expect(result.state.gameId).toBe('firestore-room');
+  });
   it('stops replay when a committed engine version is unavailable', () => {
     const incompatible = event({
       id: 'e1',

@@ -31,6 +31,10 @@ and Firestore emulators in three isolated browser contexts: one 3840×2160 table
 and two 393×852 phones. The deploy workflow reads the three
 `PUBLIC_FIREBASE_*` values from GitHub repository variables. Without those
 values, client startup fails explicitly: there is no browser-local game mode.
+The same full Firestore client handles reads, transactions, and `onSnapshot`
+updates in both environments. Its WebChannel uses bounded long-poll responses,
+and any authentication, operation, or initial-listen timeout is a fatal UI
+error rather than an alternate repository mode.
 Each QR URL contains only a random room ID and its seat. Possession of that
 tabletop-displayed URL allows the first anonymous device to claim the
 unoccupied seat.

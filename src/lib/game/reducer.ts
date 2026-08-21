@@ -29,6 +29,14 @@ export const GAME_CONFIG: GameConfig = {
   prng: 'xorshift32-1',
   damageDeck: 'standard-damage-deck-1'
 };
+const gameConfigKeys = Object.keys(GAME_CONFIG) as (keyof GameConfig)[];
+
+function supportsGameConfig(config: GameConfig) {
+  return (
+    Object.keys(config).length === gameConfigKeys.length &&
+    gameConfigKeys.every((key) => config[key] === GAME_CONFIG[key])
+  );
+}
 
 const initialShip = (id: string): ShipState => {
   const manifest = shipById(id)!;
@@ -143,7 +151,7 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
   switch (event.type) {
     case 'game/created':
       if (state.phase !== 'lobby' || state.revision !== 0) return reject('A game already exists.');
-      if (JSON.stringify(event.payload.config) !== JSON.stringify(GAME_CONFIG))
+      if (!supportsGameConfig(event.payload.config))
         return reject('This game references an unsupported rules or engine version.');
       state.gameId = event.payload.gameId;
       state.seed = event.payload.seed;

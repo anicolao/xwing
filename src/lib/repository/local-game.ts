@@ -11,7 +11,7 @@ import {
   doc,
   getDoc,
   getDocs,
-  getFirestore,
+  initializeFirestore,
   onSnapshot,
   orderBy,
   query,
@@ -23,6 +23,7 @@ import {
 
 export const ROOM_ID = 'FLIGHT7';
 const tableRoomKey = 'xwing:table-room';
+const backendTimeoutMs = 15_000;
 const useEmulator = env.PUBLIC_FIREBASE_EMULATOR === 'true';
 type EventInput = GameEvent extends infer Event
   ? Event extends GameEvent
@@ -54,6 +55,17 @@ function requiredFirebaseOptions(): FirebaseOptions {
 
 const firebaseOptions = browser ? requiredFirebaseOptions() : undefined;
 
+function requireBackend<T>(operation: string, pending: Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`${operation} timed out after ${backendTimeoutMs / 1_000} seconds.`)),
+      backendTimeoutMs
+    );
+  });
+  return Promise.race([pending, timeout]).finally(() => clearTimeout(timer));
+}
+
 export function tableRoomId(): string {
   if (!browser) return ROOM_ID;
   const existing = sessionStorage.getItem(tableRoomKey);
@@ -68,12 +80,15 @@ function remoteClient() {
   remote ??= (async () => {
     const app = getApps().length ? getApp() : initializeApp(firebaseOptions!);
     const auth = getAuth(app);
-    const db = getFirestore(app);
+    const db = initializeFirestore(app, {
+      experimentalForceLongPolling: true,
+      experimentalLongPollingOptions: { timeoutSeconds: 5 }
+    });
     if (useEmulator) {
       connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
       connectFirestoreEmulator(db, '127.0.0.1', 8080);
     }
-    if (!auth.currentUser) await signInAnonymously(auth);
+    if (!auth.currentUser) await requireBackend('Anonymous authentication', signInAnonymously(auth));
     return { auth, db };
   })();
   return remote;
@@ -81,7 +96,10 @@ function remoteClient() {
 
 async function readRemote(roomId: string) {
   const { db } = await remoteClient();
-  const snapshot = await getDocs(query(collection(db, 'games', roomId, 'events'), orderBy('sequence')));
+  const snapshot = await requireBackend(
+    'Reading the game room',
+    getDocs(query(collection(db, 'games', roomId, 'events'), orderBy('sequence')))
+  );
   return snapshot.docs.map((entry) => entry.data() as GameEvent);
 }
 
@@ -96,15 +114,18 @@ export async function appendEvent(event: EventInput, roomId = ROOM_ID): Promise<
   const projected = replay([...events, complete]);
   if (projected.diagnostics.length) throw new Error(projected.diagnostics.at(-1)!.message);
   const serialized = JSON.parse(JSON.stringify(complete)) as GameEvent;
-  await runTransaction(db, async (transaction) => {
-    const roomReference = doc(db, 'games', roomId);
-    const room = await transaction.get(roomReference);
-    if (!room.exists() || room.data().revision !== events.length)
-      throw new Error('Room changed while this action was being accepted. Retry it.');
-    const documentId = `${String(complete.sequence).padStart(8, '0')}-${complete.actor}`;
-    transaction.set(doc(db, 'games', roomId, 'events', documentId), serialized);
-    transaction.update(roomReference, { revision: complete.sequence, updatedAt: Date.now() });
-  });
+  await requireBackend(
+    'Writing the game action',
+    runTransaction(db, async (transaction) => {
+      const roomReference = doc(db, 'games', roomId);
+      const room = await transaction.get(roomReference);
+      if (!room.exists() || room.data().revision !== events.length)
+        throw new Error('Room changed while this action was being accepted. Retry it.');
+      const documentId = `${String(complete.sequence).padStart(8, '0')}-${complete.actor}`;
+      transaction.set(doc(db, 'games', roomId, 'events', documentId), serialized);
+      transaction.update(roomReference, { revision: complete.sequence, updatedAt: Date.now() });
+    })
+  );
   return complete;
 }
 
@@ -115,16 +136,29 @@ export function subscribeToRoom(
 ) {
   let stopped = false;
   let unsubscribe = () => {};
+  let timer: ReturnType<typeof setTimeout> | undefined;
   void remoteClient().then(({ db }) => {
     if (stopped) return;
+    timer = setTimeout(() => {
+      unsubscribe();
+      onError(new Error(`Watching the game room timed out after ${backendTimeoutMs / 1_000} seconds.`));
+    }, backendTimeoutMs);
     unsubscribe = onSnapshot(
       query(collection(db, 'games', roomId, 'events'), orderBy('sequence')),
-      (snapshot) => listener(snapshot.docs.map((entry) => entry.data() as GameEvent)),
-      onError
+      (snapshot) => {
+        const events = snapshot.docs.map((entry) => entry.data() as GameEvent);
+        if (!snapshot.metadata.fromCache && timer) clearTimeout(timer);
+        listener(events);
+      },
+      (error) => {
+        if (timer) clearTimeout(timer);
+        onError(error);
+      }
     );
   }, onError);
   return () => {
     stopped = true;
+    if (timer) clearTimeout(timer);
     unsubscribe();
   };
 }
@@ -132,14 +166,17 @@ export function subscribeToRoom(
 export async function createRoom(roomId = ROOM_ID): Promise<void> {
   if (!browser) return;
   const { auth, db } = await remoteClient();
-  await setDoc(doc(db, 'games', roomId), {
-    revision: 0,
-    tableUid: auth.currentUser!.uid,
-    rebelUid: null,
-    imperialUid: null,
-    createdAt: Date.now(),
-    updatedAt: Date.now()
-  });
+  await requireBackend(
+    'Creating the game room',
+    setDoc(doc(db, 'games', roomId), {
+      revision: 0,
+      tableUid: auth.currentUser!.uid,
+      rebelUid: null,
+      imperialUid: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    })
+  );
   await appendEvent(
     { type: 'game/created', actor: 'table', payload: { gameId: roomId, seed: 0x5857494e, config: GAME_CONFIG } },
     roomId
@@ -150,13 +187,16 @@ export async function claimSeat(roomId: string, seat: Seat) {
   const { auth, db } = await remoteClient();
   const roomReference = doc(db, 'games', roomId);
   try {
-    await updateDoc(roomReference, {
-      [`${seat}Uid`]: auth.currentUser!.uid,
-      updatedAt: Date.now()
-    });
+    await requireBackend(
+      'Claiming the player seat',
+      updateDoc(roomReference, {
+        [`${seat}Uid`]: auth.currentUser!.uid,
+        updatedAt: Date.now()
+      })
+    );
   } catch (claimError) {
     try {
-      const room = await getDoc(roomReference);
+      const room = await requireBackend('Checking the player seat', getDoc(roomReference));
       if (!room.exists()) throw new Error('This tabletop room does not exist.');
       if (room.data()[`${seat}Uid`] !== auth.currentUser!.uid) throw new Error('That seat has already been claimed.');
     } catch (readError) {
@@ -181,7 +221,7 @@ export async function claimSeat(roomId: string, seat: Seat) {
 export async function canAccessRoom(roomId: string) {
   try {
     const { db } = await remoteClient();
-    return (await getDoc(doc(db, 'games', roomId))).exists();
+    return (await requireBackend('Opening the game room', getDoc(doc(db, 'games', roomId)))).exists();
   } catch (error) {
     if (error instanceof FirebaseError && error.code === 'permission-denied') return false;
     throw error;

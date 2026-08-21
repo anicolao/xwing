@@ -32,7 +32,7 @@
 
 <svelte:head><title>X-Wing event replay</title></svelte:head>
 <main
-  data-status={ready ? 'ready' : 'loading'}
+  data-status={failure ? 'fatal' : ready ? 'ready' : 'loading'}
   data-e2e-layout
   style={`--starfield:url('${assets}/assets/starfield.webp')`}
 >

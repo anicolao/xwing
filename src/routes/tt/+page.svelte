@@ -33,14 +33,17 @@
   let lockSourceId = $state<string | null>(null);
   let room = $state(ROOM_ID);
   let reconnect = () => {};
+  let fatalError = $state('');
+
+  function connectionFailed(error: Error) {
+    fatalError = `Firestore connection failed: ${error.message}`;
+    notice = fatalError;
+    ready = true;
+  }
 
   onMount(() => {
     let unsubscribe = () => {};
     room = tableRoomId();
-    const connectionFailed = (error: Error) => {
-      notice = `Firestore connection failed: ${error.message}`;
-      ready = true;
-    };
     const connect = () => {
       unsubscribe();
       unsubscribe = subscribeToRoom(
@@ -82,12 +85,19 @@
     rebelUrl = `${route}&seat=rebel`;
     imperialUrl = `${route}&seat=imperial`;
   }
-  function openRoom() {
-    return perform(async () => {
+  async function openRoom() {
+    if (busy) return;
+    busy = true;
+    try {
       await createRoom(room);
       setPairingLinks();
       reconnect();
-    }, `Room ${room} opened. Scan each seat's QR code with its phone.`);
+      notice = `Room ${room} opened. Scan each seat's QR code with its phone.`;
+    } catch (error) {
+      connectionFailed(error instanceof Error ? error : new Error('The game room could not be created.'));
+    } finally {
+      busy = false;
+    }
   }
   function readySeat(seat: Seat) {
     perform(
@@ -258,7 +268,7 @@
 <main
   class:busy
   aria-busy={busy}
-  data-status={ready ? 'ready' : 'loading'}
+  data-status={fatalError ? 'fatal' : ready ? 'ready' : 'loading'}
   data-e2e-layout
   data-view={`${rotation}:${viewScale}:${panX}:${panY}`}
   style={`--starfield:url('${assets}/assets/starfield.webp');--view-rotation:${rotation}deg;--view-scale:${viewScale};--pan-x:${panX}px;--pan-y:${panY}px`}
@@ -301,7 +311,12 @@
     <p class="rules">FFG 2E<br />Rules 1.3.2</p>
     <a class="replay-link" href={`${base}/replay?room=${room}`}>Replay</a>
     <p class="view-readout">VIEW {Math.round(viewScale * 100)}% · {rotation}°</p>
-    {#if game.phase === 'lobby'}
+    {#if fatalError}
+      <section class="gutter-prompt result" role="alert">
+        <h1>FIRESTORE REQUIRED</h1>
+        <p>{fatalError}</p>
+      </section>
+    {:else if game.phase === 'lobby'}
       <section class="gutter-prompt">
         <h1>{game.gameId === 'uncreated' ? 'OPENING TABLETOP ROOM' : 'PAIR BOTH PRIVATE HANDS'}</h1>
         <p>Public play stays here. Hidden maneuvers stay on each phone.</p>
@@ -328,7 +343,7 @@
         <button class="gutter-action" onclick={rematch}>Open rematch</button>
       </section>
     {/if}
-    <p class="announcement" role="status">{publicNotice}</p>
+    <p class="announcement" role={fatalError ? 'alert' : 'status'}>{publicNotice}</p>
     <div
       class="far-gutter-mirror"
       aria-hidden="true"

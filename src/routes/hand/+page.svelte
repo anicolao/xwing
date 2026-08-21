@@ -13,6 +13,7 @@
   let ready = $state(false);
   let message = $state('This phone will show only your private maneuver dials.');
   let busy = $state(false);
+  let failure = $state('');
   let projection = $state(handProjection(replay([]).state, 'rebel'));
 
   onMount(() => {
@@ -21,7 +22,8 @@
     room = query.get('room') ?? ROOM_ID;
     let unsubscribe = () => {};
     const connectionFailed = (error: Error) => {
-      message = `Firestore connection failed: ${error.message}`;
+      failure = `Firestore connection failed: ${error.message}`;
+      message = failure;
       ready = true;
     };
     const connect = () => {
@@ -88,7 +90,7 @@
 <main
   class:busy
   aria-busy={busy}
-  data-status={ready ? 'ready' : 'loading'}
+  data-status={failure ? 'fatal' : ready ? 'ready' : 'loading'}
   data-e2e-layout
   class:imperial={seat === 'imperial'}
   style={`--starfield:url('${assets}/assets/starfield.webp')`}
@@ -101,7 +103,14 @@
     </div>
     <span class:online={paired} class="connection">{paired ? 'LINKED' : 'OFFLINE'}</span>
   </header>
-  {#if !paired}
+  {#if failure}
+    <section class="pair" role="alert">
+      <img src={`${assets}/assets/maneuver-dial-back.webp`} alt="Maneuver dial" />
+      <p class="eyebrow">Backend required</p>
+      <h1>FIRESTORE REQUIRED</h1>
+      <p>{failure}</p>
+    </section>
+  {:else if !paired}
     <section class="pair">
       <img src={`${assets}/assets/maneuver-dial-back.webp`} alt="Maneuver dial" />
       <p class="eyebrow">Seat enrollment</p>
@@ -163,7 +172,7 @@
       </dl>
     </section>
   {/if}
-  <p role="status" class="status">{message}</p>
+  <p role={failure ? 'alert' : 'status'} class="status">{message}</p>
 </main>
 
 <style>
