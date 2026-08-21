@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ -z "${IN_NIX_SHELL:-}" ]]; then
+  exec nix develop --command bun run verify:change
+fi
+
+git diff --cached --check
+git diff --check
+bun run check:format
+bun run check:e2e-steps
+bun run check
+bun run check:workflow
+bun run test:unit
+bun run test:e2e
+bun run build

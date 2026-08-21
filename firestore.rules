@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function room(gameId) {
+      return get(/databases/$(database)/documents/games/$(gameId)).data;
+    }
+
+    function isMember(gameId) {
+      return request.auth != null && (
+        room(gameId).tableUid == request.auth.uid ||
+        room(gameId).rebelUid == request.auth.uid ||
+        room(gameId).imperialUid == request.auth.uid
+      );
+    }
+
+    function actorMatchesMember(gameId) {
+      return request.resource.data.actor == 'table' && room(gameId).tableUid == request.auth.uid ||
+        request.resource.data.actor == 'rebel' && room(gameId).rebelUid == request.auth.uid ||
+        request.resource.data.actor == 'imperial' && room(gameId).imperialUid == request.auth.uid;
+    }
+
+    function isSeatClaim(gameId, seat) {
+      return request.auth != null
+        && resource.data[seat + 'Uid'] == null
+        && request.resource.data[seat + 'Uid'] == request.auth.uid
+        && (seat == 'rebel'
+          ? resource.data.imperialUid != request.auth.uid
+          : resource.data.rebelUid != request.auth.uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([seat + 'Uid', 'updatedAt']);
+    }
+
+    match /games/{gameId} {
+      allow create: if request.auth != null
+        && request.resource.data.revision == 0
+        && request.resource.data.tableUid == request.auth.uid
+        && request.resource.data.rebelUid == null
+        && request.resource.data.imperialUid == null;
+      allow read: if isMember(gameId);
+      allow update: if (
+        isMember(gameId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['revision', 'updatedAt'])
+      ) || isSeatClaim(gameId, 'rebel') || isSeatClaim(gameId, 'imperial');
+      allow delete: if false;
+
+      match /events/{eventId} {
+        allow read: if isMember(gameId);
+        allow create: if isMember(gameId)
+          && request.resource.data.id is string
+          && request.resource.data.sequence is int
+          && request.resource.data.type is string
+          && request.resource.data.actor in ['table', 'rebel', 'imperial']
+          && actorMatchesMember(gameId);
+        allow update, delete: if false;
+      }
+    }
+  }
+}
