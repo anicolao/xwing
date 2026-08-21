@@ -240,6 +240,36 @@ describe('event reducer', () => {
     expect(defense.state.attack?.defense).toEqual(['blank', 'evade']);
     expect(defense.state.pending).toBe('damage');
     expect(defense.state.ships['onyx-one']?.evade).toBe(0);
+    expect(defense.state.outcome).toMatchObject({ kind: 'attack', shipIds: ['onyx-one'] });
+    expect(defense.state.log.at(-1)).toContain('defense results became');
+  });
+  it('records and exposes attack outcomes for animation and replay', () => {
+    const state = createInitialState('duel');
+    state.phase = 'engagement';
+    state.revision = 30;
+    state.pending = 'damage';
+    state.activeShipId = 'red-five';
+    state.ships['onyx-one']!.shields = 1;
+    state.attack = {
+      attackerId: 'red-five',
+      defenderId: 'onyx-one',
+      range: 2,
+      obstructed: false,
+      attack: ['hit', 'critical'],
+      defense: ['evade']
+    };
+    const result = applyEvent(
+      state,
+      event({ id: 'e31', type: 'engagement/resolved', actor: 'table', sequence: 31, payload: {} })
+    );
+    expect(result.diagnostic).toBeUndefined();
+    expect(result.state.outcome).toEqual({
+      eventId: 'e31',
+      kind: 'damage',
+      text: '1 SHIELD LOST',
+      shipIds: ['onyx-one']
+    });
+    expect(result.state.log.at(-1)).toBe("Red Five's attack resolved against Onyx One: 1 shield lost.");
   });
   it('repairs enabled faceup ship damage as the active ship action', () => {
     const state = createInitialState('duel');
@@ -295,6 +325,8 @@ describe('event reducer', () => {
     );
     expect(rolled.diagnostic).toBeUndefined();
     expect(rolled.state.ships['red-five']!.pose.x).toBe(state.ships['red-five']!.pose.x + 4_000);
+    expect(rolled.state.outcome).toMatchObject({ kind: 'action', text: 'BARREL ROLLED RIGHT' });
+    expect(rolled.state.log.at(-1)).toBe('Red Five barrel rolled right.');
   });
 });
 

@@ -144,10 +144,12 @@ test('two seats plan privately and resolve a public attack on the shared table',
     surfaces,
     verifications: [
       {
-        spec: 'The shared table shows Planning without any dial-selection control',
+        spec: 'Planning status stays in the gutter without obscuring the battlefield or exposing dial controls',
         check: async () => {
           await expect(page.locator('.phase')).toHaveText('planning');
           await expect(page.getByRole('button', { name: /speed \d/ })).toHaveCount(0);
+          await expect(page.locator('.left .gutter-prompt')).toContainText('PLANNING');
+          await expect(page.locator('.battlefield .gutter-prompt')).toHaveCount(0);
         }
       },
       {
@@ -191,8 +193,15 @@ test('two seats plan privately and resolve a public attack on the shared table',
 
   async function activateSquad() {
     for (let index = 0; index < 3; index += 1) {
-      await page.locator('button.selectable').click();
+      const active = page.locator('button.selectable');
+      const activeId = await active.getAttribute('data-ship');
+      await active.click();
       const actions = page.getByRole('navigation', { name: /actions/ });
+      await expect(actions.locator('xpath=ancestor::*[@data-context-ship][1]')).toHaveAttribute(
+        'data-context-ship',
+        activeId!
+      );
+      await expect(page.locator(`[data-ship="${activeId}"] .outcome`)).toBeVisible();
       await actions.getByRole('button', { name: /focus/ }).click();
       await expect(actions).toBeHidden();
     }
@@ -200,16 +209,20 @@ test('two seats plan privately and resolve a public attack on the shared table',
   }
 
   async function finishDiceModifications() {
-    const attackFocus = page.getByRole('button', { name: 'Spend focus' });
-    const attackForce = page.getByRole('button', { name: 'Spend Force' });
+    const attackControls = page.getByRole('navigation', { name: 'Attacker dice modifications' });
+    const attackFocus = attackControls.getByRole('button', { name: 'Spend focus' });
+    const attackForce = attackControls.getByRole('button', { name: 'Spend Force' });
     if (await attackFocus.isEnabled()) await attackFocus.click();
     else if (await attackForce.isEnabled()) await attackForce.click();
-    else await page.getByRole('button', { name: 'Pass attack modification' }).click();
-    const defenseFocus = page.getByRole('button', { name: 'Spend focus' });
-    const defenseEvade = page.getByRole('button', { name: 'Spend evade' });
+    else await attackControls.getByRole('button', { name: 'Pass attack modification' }).click();
+    const defenseControls = page.getByRole('navigation', { name: 'Defender dice modifications' });
+    await expect(defenseControls).toBeVisible();
+    const defenseFocus = defenseControls.getByRole('button', { name: 'Spend focus' });
+    const defenseEvade = defenseControls.getByRole('button', { name: 'Spend evade' });
     if (await defenseFocus.isEnabled()) await defenseFocus.click();
     else if (await defenseEvade.isEnabled()) await defenseEvade.click();
-    else await page.getByRole('button', { name: 'Pass defense modification' }).click();
+    else await defenseControls.getByRole('button', { name: 'Pass defense modification' }).click();
+    await expect(page.getByRole('button', { name: 'Apply results' })).toBeVisible();
   }
 
   await planRound();
@@ -227,10 +240,12 @@ test('two seats plan privately and resolve a public attack on the shared table',
         }
       },
       {
-        spec: 'The table names the active ship and offers direct battlefield reveal',
+        spec: 'The reveal prompt is anchored beside and oriented for the active ship',
         check: async () => {
           await expect(page.getByText('REVEAL', { exact: true })).toBeVisible();
           await expect(page.locator('button.selectable')).toHaveCount(1);
+          const activeId = await page.locator('button.selectable').getAttribute('data-ship');
+          await expect(page.locator('[data-context-ship]')).toHaveAttribute('data-context-ship', activeId!);
         }
       },
       {
@@ -266,11 +281,15 @@ test('two seats plan privately and resolve a public attack on the shared table',
         }
       },
       {
-        spec: 'The table applies the range-one bonus and presents labeled dice with an explicit attacker modification window',
+        spec: 'Mirrored ship-local combat panels show range-one dice and the current player’s modification controls',
         check: async () => {
-          await expect(page.locator('.dice-tray')).toContainText('RANGE 1');
-          await expect(page.getByAltText(/Attack die/)).toHaveCount(4);
+          const dice = page.getByRole('region', { name: 'Attack dice tray' });
+          await expect(dice).toContainText('RANGE 1');
+          await expect(dice.getByAltText(/Attack die/)).toHaveCount(4);
           await expect(page.getByRole('navigation', { name: 'Attacker dice modifications' })).toBeVisible();
+          await expect(page.locator('.combat-anchor')).toHaveCount(2);
+          await expect(page.locator('.combat-attacker')).toHaveAttribute('data-context-ship', 'red-five');
+          await expect(page.locator('.combat-defender')).toHaveAttribute('data-context-ship', 'onyx-one');
         }
       },
       {
@@ -291,6 +310,7 @@ test('two seats plan privately and resolve a public attack on the shared table',
 
   await finishDiceModifications();
   await page.getByRole('button', { name: 'Apply results' }).click();
+  await expect(page.getByRole('complementary', { name: 'Public event log' })).toContainText('attack resolved');
   let attacker = await page.locator('button.active').getAttribute('data-ship');
   await page.getByRole('button', { name: 'Pass attack' }).click();
   await expect(page.locator('button.active')).not.toHaveAttribute('data-ship', attacker!);
@@ -348,6 +368,14 @@ test('two seats plan privately and resolve a public attack on the shared table',
           await expect(page.getByRole('link', { name: 'Review replay' })).toBeVisible();
           await expect(page.getByRole('button', { name: 'Open rematch' })).toBeVisible();
           await expect(page.getByRole('button', { name: /Roll|Apply|Pass attack/ })).toHaveCount(0);
+        }
+      },
+      {
+        spec: 'The flight log records both player actions and their resolved outcomes',
+        check: async () => {
+          const log = page.getByRole('complementary', { name: 'Public event log' });
+          await expect(log).toContainText('attack resolved');
+          await expect(log).toContainText('squad conceded');
         }
       },
       {

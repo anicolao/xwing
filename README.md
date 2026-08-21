@@ -1,7 +1,7 @@
 # X-Wing
 
 This repository contains an unofficial, realtime browser teaching duel based
-on *Star Wars: X-Wing Second Edition*, the two-player tactical miniatures game
+on _Star Wars: X-Wing Second Edition_, the two-player tactical miniatures game
 published by Fantasy Flight Games.
 
 The initial rules target is Fantasy Flight Games' final Second Edition
@@ -14,6 +14,10 @@ The playable slice uses one shared landscape table for every public action and
 one private phone hand per seat for maneuver planning. It includes a
 deterministic event reducer, fixed-point maneuver and combat geometry, seeded
 dice, damage, round and victory handling, and prefix-by-prefix replay.
+Map-specific controls stay attached to the ship or placement they affect and
+face the acting player; shared combat information is mirrored for both table
+edges. Non-spatial prompts remain in the gutters, while animated outcomes and
+the persistent flight log explain both the chosen action and what it produced.
 
 ## Play the teaching duel
 
@@ -165,7 +169,7 @@ and deliberately avoids official illustrations, logos, faction emblems, ship
 designs, card layouts, and trade dress. See [ASSETS.md](ASSETS.md) for the full
 provenance record.
 
-*Star Wars*, *X-Wing*, Fantasy Flight Games, Atomic Mass Games, and related
+_Star Wars_, _X-Wing_, Fantasy Flight Games, Atomic Mass Games, and related
 names and marks belong to their respective owners. This independent fan
 project is not endorsed by or affiliated with Lucasfilm, Fantasy Flight Games,
 Asmodee, or Atomic Mass Games.

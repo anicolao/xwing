@@ -75,7 +75,7 @@ One shared 4K table pairs two private hands, keeps both dial values off the publ
 
 **Verifications:**
 
-- [x] The shared table shows Planning without any dial-selection control
+- [x] Planning status stays in the gutter without obscuring the battlefield or exposing dial controls
 - [x] The Rebel hand exposes one Red Five dial and no Imperial ships
 - [x] The Imperial hand exposes two own dials and no Rebel ship
 - [x] All three production surfaces are error-free
@@ -115,7 +115,7 @@ One shared 4K table pairs two private hands, keeps both dial values off the publ
 **Verifications:**
 
 - [x] Both phones seal the dial values and contain no reveal or action controls
-- [x] The table names the active ship and offers direct battlefield reveal
+- [x] The reveal prompt is anchored beside and oriented for the active ship
 - [x] No hidden maneuver value is rendered on the shared table
 
 ## Movement and deterministic dice resolve on the public table
@@ -153,7 +153,7 @@ One shared 4K table pairs two private hands, keeps both dial values off the publ
 **Verifications:**
 
 - [x] All three ships moved through canonical speed-three geometry before combat
-- [x] The table applies the range-one bonus and presents labeled dice with an explicit attacker modification window
+- [x] Mirrored ship-local combat panels show range-one dice and the current player’s modification controls
 - [x] Both phones remain public-control-free waiting surfaces during combat
 - [x] The complete multi-surface story has no browser or asset error
 
@@ -193,6 +193,7 @@ One shared 4K table pairs two private hands, keeps both dial values off the publ
 
 - [x] A damaged ship displays production damage-card art
 - [x] The result freezes public gameplay and offers replay and rematch on the table
+- [x] The flight log records both player actions and their resolved outcomes
 - [x] Both private hands remain waiting surfaces after game end
 
 ## The accepted event history can be replayed at every prefix

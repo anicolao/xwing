@@ -29,6 +29,12 @@ export interface ShipState {
   skipAction: boolean;
   destroyed: boolean;
 }
+export interface GameOutcome {
+  eventId: string;
+  kind: 'movement' | 'action' | 'attack' | 'damage' | 'round';
+  text: string;
+  shipIds: string[];
+}
 export interface GameState {
   gameId: string;
   revision: number;
@@ -63,6 +69,7 @@ export interface GameState {
   damageDeck: string[];
   damageCursor: number;
   log: string[];
+  outcome?: GameOutcome;
 }
 export interface EventBase<T extends string, P> {
   id: string;

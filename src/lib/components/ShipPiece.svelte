@@ -1,13 +1,20 @@
 <script lang="ts">
   import { assets } from '$app/paths';
   import { shipById } from '$lib/manifests/teaching-duel';
-  import type { ShipState } from '$lib/game/model';
+  import type { GameOutcome, ShipState } from '$lib/game/model';
   let {
     ship,
     active = false,
     selectable = false,
+    outcome,
     onclick
-  }: { ship: ShipState; active?: boolean; selectable?: boolean; onclick?: () => void } = $props();
+  }: {
+    ship: ShipState;
+    active?: boolean;
+    selectable?: boolean;
+    outcome?: GameOutcome;
+    onclick?: () => void;
+  } = $props();
   const manifest = $derived(shipById(ship.id)!);
 </script>
 
@@ -15,7 +22,9 @@
   class:active
   class:destroyed={ship.destroyed}
   class:selectable
-  style={`--x:${ship.pose.x / 914.4}%;--y:${ship.pose.y / 914.4}%;--angle:${ship.pose.angle / 1000}deg`}
+  class:outcome-action={outcome?.kind === 'action'}
+  class:outcome-damage={outcome?.kind === 'damage'}
+  style={`--x:${ship.pose.x / 914.4}%;--y:${ship.pose.y / 914.4}%;--angle:${ship.pose.angle / 1000}deg;--seat-facing:${ship.seat === 'imperial' ? '180deg' : '0deg'}`}
   aria-label={`${manifest.name}, ${ship.hull} hull, ${ship.shields} shields${active ? ', active' : ''}`}
   disabled={!selectable}
   onclick={selectable ? onclick : undefined}
@@ -32,6 +41,9 @@
   {#if ship.damage.length}<span class="damage" aria-label={`${ship.damage.length} damage cards`}
       ><img src={`${assets}/assets/damage-card-back.webp`} alt="" /><b>{ship.damage.length}</b></span
     >{/if}
+  {#key outcome?.eventId}
+    {#if outcome}<span class="outcome" role="status">{outcome.text}</span>{/if}
+  {/key}
 </button>
 
 <style>
@@ -175,20 +187,66 @@
     opacity: 0.3;
     filter: grayscale(1);
   }
+  .outcome {
+    position: absolute;
+    z-index: 8;
+    left: 50%;
+    bottom: 135%;
+    min-width: max-content;
+    max-width: 380px;
+    padding: 7px 11px;
+    transform: translateX(-50%) rotate(calc(-1 * var(--angle) + var(--seat-facing) - var(--view-rotation)));
+    border: 1px solid #efbb58;
+    border-radius: 5px;
+    background: #07111ff2;
+    box-shadow: 0 0 28px #efbb5866;
+    color: #fff4cf;
+    font: 700 clamp(9px, 0.68vw, 18px) 'Space Mono';
+    letter-spacing: 0.04em;
+    animation: outcome-arrive 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  button.outcome-damage .craft {
+    animation: damage-impact 0.55s ease-out;
+  }
+  button.outcome-action .token {
+    animation: token-arrive 0.55s ease-out;
+  }
   @keyframes pulse {
     50% {
       transform: scale(1.08);
       opacity: 0.65;
     }
   }
-  @media (prefers-reduced-motion: reduce) {
-    button.active::before,
-    button.selectable::before {
-      animation: none;
+  @keyframes outcome-arrive {
+    from {
+      opacity: 0;
+      transform: translateX(-50%) translateY(18px)
+        rotate(calc(-1 * var(--angle) + var(--seat-facing) - var(--view-rotation))) scale(0.82);
+    }
+  }
+  @keyframes damage-impact {
+    25% {
+      transform: translateX(-8%);
+      filter: brightness(2) drop-shadow(0 0 16px #ff6d4a);
+    }
+    55% {
+      transform: translateX(7%);
+    }
+  }
+  @keyframes token-arrive {
+    from {
+      opacity: 0;
+      scale: 0.3;
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    button {
+    button,
+    button.active::before,
+    button.selectable::before,
+    .outcome,
+    button.outcome-damage .craft,
+    button.outcome-action .token {
+      animation: none;
       transition: none;
     }
   }

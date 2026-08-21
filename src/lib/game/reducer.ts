@@ -97,8 +97,9 @@ const nextActivation = (state: GameState) => {
 };
 
 function resolveDamage(state: GameState) {
-  if (!state.attack) return;
+  if (!state.attack) return { shieldLoss: 0, hullLoss: 0, destroyed: false };
   const defender = state.ships[state.attack.defenderId]!;
+  const hullBefore = defender.hull;
   const hits = state.attack.attack.filter((face) => face === 'hit' || face === 'critical').length;
   const evades = state.attack.defense.filter((face) => face === 'evade').length;
   let remaining = Math.max(0, hits - evades);
@@ -124,13 +125,21 @@ function resolveDamage(state: GameState) {
     }
   }
   defender.destroyed = defender.hull <= 0;
+  return { shieldLoss, hullLoss: hullBefore - defender.hull, destroyed: defender.destroyed };
 }
+
+const title = (seat: Seat) => (seat === 'rebel' ? 'Rebel' : 'Imperial');
+const faceSummary = (faces: string[]) => (faces.length ? faces.join(', ') : 'no results');
 
 export function applyEvent(source: GameState, event: GameEvent): { state: GameState; diagnostic?: Diagnostic } {
   if (event.sequence !== source.revision + 1)
     return { state: source, diagnostic: { eventId: event.id, message: 'Event sequence is stale or out of order.' } };
   const state = structuredClone(source);
   const reject = (message: string) => ({ state: source, diagnostic: { eventId: event.id, message } });
+  state.outcome = undefined;
+  const outcome = (kind: NonNullable<GameState['outcome']>['kind'], text: string, shipIds: string[]) => {
+    state.outcome = { eventId: event.id, kind, text, shipIds };
+  };
   switch (event.type) {
     case 'game/created':
       if (state.phase !== 'lobby' || state.revision !== 0) return reject('A game already exists.');
@@ -153,9 +162,11 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       if (event.actor !== 'table' || !state.seats[event.payload.seat].joined)
         return reject('Only the table can ready a paired seat.');
       state.seats[event.payload.seat].ready = true;
+      state.log.push(`${title(event.payload.seat)} squad readied.`);
       if (state.seats.rebel.ready && state.seats.imperial.ready) {
         state.phase = 'setup';
         state.pending = 'setup';
+        state.log.push('Both squads ready. Fixed setup began.');
       }
       break;
     case 'setup/completed':
@@ -201,6 +212,7 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       if (state.phase !== 'planning' || event.actor !== event.payload.seat || owned.some((ship) => !ship.maneuver))
         return reject('Every active ship needs a dial before commitment.');
       state.seats[event.payload.seat].committed = true;
+      state.log.push(`${title(event.payload.seat)} squad committed its maneuvers.`);
       if (state.seats.rebel.committed && state.seats.imperial.committed) {
         state.phase = 'activation';
         nextActivation(state);
@@ -230,9 +242,16 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       if (ship.maneuver.difficulty === 'red') ship.stress += 1;
       if (ship.maneuver.difficulty === 'blue' && ship.stress) ship.stress -= 1;
       state.pending = 'action';
-      state.log.push(
-        `${shipById(ship.id)!.name} revealed ${ship.maneuver.speed} ${ship.maneuver.bearing}${collision ? ' and stopped before an overlap' : ''}.`
-      );
+      const movementResults = [
+        `${ship.maneuver.speed} ${ship.maneuver.bearing}`,
+        collision ? 'stopped before overlap' : '',
+        obstacle?.type === 'asteroid' ? 'asteroid: action skipped' : '',
+        obstacle?.type === 'debris' ? 'debris: +1 stress' : '',
+        ship.maneuver.difficulty === 'red' ? 'red maneuver: +1 stress' : '',
+        ship.maneuver.difficulty === 'blue' ? 'blue maneuver: stress reduced' : ''
+      ].filter(Boolean);
+      state.log.push(`${shipById(ship.id)!.name} moved: ${movementResults.join(' · ')}.`);
+      outcome('movement', movementResults.join(' · ').toUpperCase(), [ship.id]);
       break;
     }
     case 'activation/action': {
@@ -250,18 +269,30 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
         (!manifest?.actions.includes(event.payload.action) || ship.stress > 0 || ship.skipAction)
       )
         return reject('That action is not legal.');
-      if (event.payload.action === 'focus') ship.focus += 1;
-      if (event.payload.action === 'evade') ship.evade += 1;
+      let actionResult = 'passed its action';
+      if (event.payload.action === 'focus') {
+        ship.focus += 1;
+        actionResult = 'gained 1 focus token';
+      }
+      if (event.payload.action === 'evade') {
+        ship.evade += 1;
+        actionResult = 'gained 1 evade token';
+      }
       if (event.payload.action === 'lock') {
         const target = event.payload.targetId ? state.ships[event.payload.targetId] : undefined;
         if (!target || target.destroyed || target.seat === ship.seat || rangeBetween(ship.pose, target.pose) > 3)
           return reject('Touch an enemy at range 0–3 to acquire a lock.');
         ship.lock = target.id;
+        actionResult = `locked ${shipById(target.id)!.name}`;
       }
       if (event.payload.action === 'barrel-roll') {
         if (!event.payload.direction) return reject('Choose the left or right barrel-roll position.');
         ship.pose.x += event.payload.direction === 'left' ? -4_000 : 4_000;
+        actionResult = `barrel rolled ${event.payload.direction}`;
       }
+      if (event.payload.action === 'pass' && ship.skipAction) actionResult = 'skipped its action after an obstruction';
+      state.log.push(`${shipById(ship.id)!.name} ${actionResult}.`);
+      outcome('action', actionResult.toUpperCase(), [ship.id]);
       ship.activated = true;
       nextActivation(state);
       break;
@@ -286,6 +317,7 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       card.title = 'Facedown damage';
       ship.activated = true;
       state.log.push(`${shipById(ship.id)!.name} repaired ${title}.`);
+      outcome('action', `REPAIRED ${title.toUpperCase()}`, [ship.id]);
       nextActivation(state);
       break;
     }
@@ -317,6 +349,13 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
         defense: []
       };
       state.pending = 'attack';
+      state.log.push(
+        `${shipById(attacker.id)!.name} targeted ${shipById(defender.id)!.name} at range ${range}${obstructed ? ' through an obstruction' : ''}.`
+      );
+      outcome('attack', `TARGET LOCKED · RANGE ${range}${obstructed ? ' · OBSTRUCTED' : ''}`, [
+        attacker.id,
+        defender.id
+      ]);
       break;
     }
     case 'engagement/passed': {
@@ -329,6 +368,8 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       )
         return reject('This ship cannot pass now.');
       attacker.engaged = true;
+      state.log.push(`${shipById(attacker.id)!.name} had no attack and passed.`);
+      outcome('attack', 'NO ATTACK · PASSED', [attacker.id]);
       const next = engagementOrder(state)[0];
       state.activeShipId = next?.id;
       state.pending = next ? 'target' : 'end';
@@ -364,6 +405,13 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
       state.attack.attack = attackRoll.results;
       state.attack.defense = defenseRoll.results;
       state.pending = 'attacker-modify';
+      state.log.push(
+        `${shipById(state.attack.attackerId)!.name} rolled ${faceSummary(attackRoll.results)}; ${shipById(state.attack.defenderId)!.name} rolled ${faceSummary(defenseRoll.results)}.`
+      );
+      outcome('attack', `ATTACK ${faceSummary(attackRoll.results)} · DEFENSE ${faceSummary(defenseRoll.results)}`, [
+        state.attack.attackerId,
+        state.attack.defenderId
+      ]);
       break;
     }
     case 'engagement/attack-modified': {
@@ -387,6 +435,12 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
         attacker.force -= 1;
       }
       state.pending = 'defender-modify';
+      state.log.push(
+        event.payload.choice === 'pass'
+          ? `${shipById(attacker.id)!.name} passed attack modification.`
+          : `${shipById(attacker.id)!.name} spent ${event.payload.choice}; attack results became ${faceSummary(state.attack.attack)}.`
+      );
+      outcome('attack', `ATTACK ${faceSummary(state.attack.attack)}`, [attacker.id]);
       break;
     }
     case 'engagement/defense-modified': {
@@ -409,13 +463,31 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
         state.attack.defense.push('evade');
       }
       state.pending = 'damage';
+      state.log.push(
+        event.payload.choice === 'pass'
+          ? `${shipById(defender.id)!.name} passed defense modification.`
+          : `${shipById(defender.id)!.name} spent ${event.payload.choice}; defense results became ${faceSummary(state.attack.defense)}.`
+      );
+      outcome('attack', `DEFENSE ${faceSummary(state.attack.defense)}`, [defender.id]);
       break;
     }
     case 'engagement/resolved': {
       if (event.actor !== 'table' || state.phase !== 'engagement' || state.pending !== 'damage' || !state.attack)
         return reject('No rolled attack is ready to resolve.');
-      resolveDamage(state);
-      state.ships[state.attack.attackerId]!.engaged = true;
+      const attackerId = state.attack.attackerId;
+      const defenderId = state.attack.defenderId;
+      const damage = resolveDamage(state);
+      const damageParts = [
+        damage.shieldLoss ? `${damage.shieldLoss} shield${damage.shieldLoss === 1 ? '' : 's'} lost` : '',
+        damage.hullLoss ? `${damage.hullLoss} hull lost` : '',
+        !damage.shieldLoss && !damage.hullLoss ? 'no damage' : '',
+        damage.destroyed ? 'destroyed' : ''
+      ].filter(Boolean);
+      state.log.push(
+        `${shipById(attackerId)!.name}'s attack resolved against ${shipById(defenderId)!.name}: ${damageParts.join(' · ')}.`
+      );
+      outcome('damage', damageParts.join(' · ').toUpperCase(), [defenderId]);
+      state.ships[attackerId]!.engaged = true;
       state.attack = undefined;
       const next = engagementOrder(state)[0];
       state.activeShipId = next?.id;
@@ -433,7 +505,11 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
         state.phase = 'finished';
         state.winner = rebel === imperial ? 'draw' : rebel ? 'rebel' : 'imperial';
         state.pending = null;
+        state.log.push(
+          `Round ${state.round} ended. ${state.winner === 'draw' ? 'Both squadrons were eliminated.' : `${title(state.winner)} won the duel.`}`
+        );
       } else {
+        const completedRound = state.round;
         state.round += 1;
         state.phase = 'planning';
         state.pending = null;
@@ -448,7 +524,9 @@ export function applyEvent(source: GameState, event: GameEvent): { state: GameSt
           ship.focus = 0;
           ship.evade = 0;
         }
+        state.log.push(`Round ${completedRound} ended. Round ${state.round} planning began; circular tokens cleared.`);
       }
+      outcome('round', state.phase === 'finished' ? 'GAME COMPLETE' : `ROUND ${state.round} · PLANNING`, []);
       break;
     }
     case 'game/conceded':

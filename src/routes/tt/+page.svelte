@@ -2,6 +2,7 @@
   import '$lib/styles/game.css';
   import { assets, base } from '$app/paths';
   import { onMount } from 'svelte';
+  import CombatPanel from '$lib/components/CombatPanel.svelte';
   import QrCode from '$lib/components/QrCode.svelte';
   import ShipPiece from '$lib/components/ShipPiece.svelte';
   import { publicProjection } from '$lib/game/selectors';
@@ -238,9 +239,17 @@
     if (drag?.pointerId === event.pointerId) drag = null;
   }
 
+  function shipAnchorStyle(ship: GameState['ships'][string]) {
+    return `--prompt-x:${ship.pose.x / 914.4}%;--prompt-y:${ship.pose.y / 914.4}%;--seat-facing:${ship.seat === 'imperial' ? '180deg' : '0deg'}`;
+  }
+
   const activeShip = $derived(game.activeShipId ? game.ships[game.activeShipId] : undefined);
   const activeManifest = $derived(activeShip ? shipById(activeShip.id) : undefined);
   const nextPlacement = $derived(setupOrder[game.setupPlaced.length]);
+  const publicNotice = $derived(game.outcome?.text ?? notice);
+  const combatControlShipId = $derived(
+    game.attack ? (game.pending === 'defender-modify' ? game.attack.defenderId : game.attack.attackerId) : undefined
+  );
 </script>
 
 <svelte:head><title>X-Wing shared tabletop</title></svelte:head>
@@ -292,6 +301,52 @@
     <p class="rules">FFG 2E<br />Rules 1.3.2</p>
     <a class="replay-link" href={`${base}/replay?room=${room}`}>Replay</a>
     <p class="view-readout">VIEW {Math.round(viewScale * 100)}% · {rotation}°</p>
+    {#if game.phase === 'lobby'}
+      <section class="gutter-prompt">
+        <h1>{game.gameId === 'uncreated' ? 'OPENING TABLETOP ROOM' : 'PAIR BOTH PRIVATE HANDS'}</h1>
+        <p>Public play stays here. Hidden maneuvers stay on each phone.</p>
+      </section>
+    {:else if game.phase === 'planning'}
+      <section class="gutter-prompt">
+        <h1>PLANNING</h1>
+        <p>
+          {game.seats.rebel.committed ? 'Rebel committed.' : 'Rebel choosing.'}
+          {game.seats.imperial.committed ? 'Imperial committed.' : 'Imperial choosing.'}
+        </p>
+      </section>
+    {:else if game.phase === 'engagement' && game.pending === 'end'}
+      <section class="gutter-prompt">
+        <h1>END PHASE</h1>
+        <p>All surviving ships have engaged.</p>
+        <button class="gutter-action" onclick={endRound}>Resolve End phase</button>
+      </section>
+    {:else if game.phase === 'finished'}
+      <section class="gutter-prompt result">
+        <h1>{game.winner === 'draw' ? 'DRAW' : `${game.winner?.toUpperCase()} VICTORY`}</h1>
+        <p>The event history is complete.</p>
+        <a href={`${base}/replay?room=${room}`}>Review replay</a>
+        <button class="gutter-action" onclick={rematch}>Open rematch</button>
+      </section>
+    {/if}
+    <p class="announcement" role="status">{publicNotice}</p>
+    <div
+      class="far-gutter-mirror"
+      aria-hidden="true"
+      data-title={game.phase === 'lobby'
+        ? game.gameId === 'uncreated'
+          ? 'OPENING ROOM'
+          : 'PAIR BOTH HANDS'
+        : game.phase === 'planning'
+          ? 'PLANNING'
+          : game.phase === 'finished'
+            ? game.winner === 'draw'
+              ? 'DRAW'
+              : `${game.winner?.toUpperCase()} VICTORY`
+            : game.phase === 'engagement' && game.pending === 'end'
+              ? 'END PHASE'
+              : game.phase.toUpperCase()}
+      data-detail={publicNotice}
+    ></div>
   </aside>
 
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions (the spatial play surface supports direct pointer panning) -->
@@ -318,6 +373,7 @@
       {#if game.setupPlaced.includes(ship.id) || !['lobby', 'setup'].includes(game.phase)}<ShipPiece
           {ship}
           active={ship.id === game.activeShipId}
+          outcome={!game.attack && game.outcome?.shipIds.includes(ship.id) ? game.outcome : undefined}
           selectable={(game.phase === 'activation' && game.pending === 'reveal' && ship.id === game.activeShipId) ||
             (lockSourceId !== null && ship.seat !== game.ships[lockSourceId]?.seat && !ship.destroyed) ||
             (game.phase === 'engagement' &&
@@ -335,91 +391,103 @@
     {#if game.phase === 'setup' && nextPlacement}
       <button
         class="placement"
-        style={`--px:${nextPlacement.x / 914.4}%;--py:${nextPlacement.y / 914.4}%`}
+        style={`--px:${nextPlacement.x / 914.4}%;--py:${nextPlacement.y / 914.4}%;--seat-facing:${nextPlacement.seat === 'imperial' ? '180deg' : '0deg'}`}
         onclick={() => placeSetupPiece(nextPlacement.id)}
         aria-label={`Place ${nextPlacement.kind === 'ship' ? shipById(nextPlacement.id)?.name : `obstacle ${game.setupPlaced.length + 1}`} for ${nextPlacement.seat}`}
       >
         <img src={`${assets}/assets/${nextPlacement.asset}`} alt="" /><span
-          >{nextPlacement.seat.toUpperCase()} · PLACE</span
+          >FIXED SETUP {game.setupPlaced.length + 1}/9 · {nextPlacement.seat.toUpperCase()} PLACE {nextPlacement.kind.toUpperCase()}</span
         >
       </button>
     {/if}
-    {#if game.phase === 'lobby'}
-      <div class="center-message">
-        <img src={`${assets}/assets/maneuver-dial-back.webp`} alt="Maneuver dial" />
-        <h1>{game.gameId === 'uncreated' ? 'OPENING TABLETOP ROOM' : 'PAIR BOTH PRIVATE HANDS'}</h1>
-        <p>Public play stays here. Only hidden maneuver choices move to a phone.</p>
-      </div>
-    {:else if game.phase === 'setup'}
-      <div class="instruction setup-instruction">
-        <b>FIXED SETUP · {game.setupPlaced.length + 1}/9</b><span
-          >{nextPlacement?.seat.toUpperCase()} player: touch the highlighted {nextPlacement?.kind} on the battlefield</span
-        >
-      </div>
-    {:else if game.phase === 'planning'}
-      <div class="center-message compact">
-        <h1>PLANNING</h1>
-        <p>
-          Dials remain hidden. {game.seats.rebel.committed ? 'Rebel committed.' : 'Rebel choosing.'}
-          {game.seats.imperial.committed ? 'Imperial committed.' : 'Imperial choosing.'}
-        </p>
-      </div>
-    {:else if game.phase === 'activation' && game.pending === 'reveal'}
-      <div class="instruction"><b>REVEAL</b><span>Touch {activeManifest?.name} on the battlefield</span></div>
-    {:else if game.phase === 'engagement' && game.pending === 'target'}
-      <div class="instruction">
-        <b>CHOOSE TARGET</b><span>Touch an enemy in arc, or pass</span><button onclick={passAttack}>Pass attack</button>
+    {#if activeShip && activeManifest && !game.attack && ['reveal', 'action', 'target'].includes(game.pending ?? '')}
+      <div
+        class:above-ship={activeShip.seat === 'rebel'}
+        class="ship-anchor"
+        style={shipAnchorStyle(activeShip)}
+        data-context-ship={activeShip.id}
+      >
+        <div class="player-facing">
+          {#if game.pending === 'reveal'}
+            <div class="instruction"><b>REVEAL</b><span>Touch {activeManifest.name}</span></div>
+          {:else if game.pending === 'target'}
+            <div class="instruction">
+              <b>{activeManifest.name.toUpperCase()} · CHOOSE TARGET</b><span>Touch an enemy in arc, or pass</span
+              ><button onclick={passAttack}>Pass attack</button>
+            </div>
+          {:else if game.pending === 'action'}
+            <nav class="action-strip" aria-label={`${activeManifest.name} actions`}>
+              <strong>{activeManifest.name}</strong>
+              {#if lockSourceId}
+                <span class="lock-instruction">Touch an enemy at range 0–3</span>
+              {:else}
+                {#each activeManifest.actions as action}
+                  {#if action === 'barrel-roll'}
+                    <button
+                      onclick={() => act(activeShip!.id, action, undefined, 'left')}
+                      disabled={activeShip.stress > 0 || activeShip.skipAction}
+                      aria-label="Barrel roll left"
+                    >
+                      <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />← roll
+                    </button>
+                    <button
+                      onclick={() => act(activeShip!.id, action, undefined, 'right')}
+                      disabled={activeShip.stress > 0 || activeShip.skipAction}
+                      aria-label="Barrel roll right"
+                    >
+                      <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />roll →
+                    </button>
+                  {:else}
+                    <button
+                      onclick={() => (action === 'lock' ? beginLock(activeShip!.id) : act(activeShip!.id, action))}
+                      disabled={activeShip.stress > 0 || activeShip.skipAction}
+                    >
+                      <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />{action}
+                    </button>
+                  {/if}
+                {/each}
+                {#each activeShip.damage.filter((card) => card.faceup && (card.id.startsWith('weapons-failure-') || card.id.startsWith('structural-damage-'))) as card}
+                  <button
+                    class="repair"
+                    onclick={() => repair(activeShip!.id, card.id, card.title)}
+                    disabled={activeShip.stress > 0 || activeShip.skipAction}
+                    aria-label={`Repair ${card.title}`}>Repair {card.title}</button
+                  >
+                {/each}
+                <button onclick={() => act(activeShip!.id, 'pass')}>Pass</button>
+              {/if}
+            </nav>
+          {/if}
+        </div>
       </div>
     {/if}
     {#if game.attack}
-      <div class="dice-tray" aria-label="Attack dice tray">
-        <p>
-          {shipById(game.attack.attackerId)?.name} → {shipById(game.attack.defenderId)?.name} · RANGE {game.attack
-            .range}{game.attack.obstructed ? ' · OBSTRUCTED' : ''}
-        </p>
-        {#if game.pending === 'attack'}
-          <button class="primary" onclick={roll}>Roll attack and defense</button>
-        {:else}
-          <div class="dice">
-            {#each game.attack.attack as face}<img
-                src={`${assets}/assets/icons/die-${face}.png`}
-                alt={`Attack die ${face}`}
-              />{/each}
-            <i></i>
-            {#each game.attack.defense as face}<img
-                src={`${assets}/assets/icons/die-${face}.png`}
-                alt={`Defense die ${face}`}
-              />{/each}
+      {#each [game.ships[game.attack.attackerId]!, game.ships[game.attack.defenderId]!] as combatShip}
+        <div
+          class:above-ship={combatShip.seat === 'rebel'}
+          class:combat-attacker={combatShip.id === game.attack.attackerId}
+          class:combat-defender={combatShip.id === game.attack.defenderId}
+          class="ship-anchor combat-anchor"
+          style={shipAnchorStyle(combatShip)}
+          data-context-ship={combatShip.id}
+        >
+          <div class="player-facing">
+            <CombatPanel
+              {game}
+              interactive={combatShip.id === combatControlShipId}
+              onroll={roll}
+              onattack={modifyAttack}
+              ondefense={modifyDefense}
+              onresolve={resolveAttack}
+            />
           </div>
-          {#if game.pending === 'attacker-modify'}
-            <nav class="modifier-controls" aria-label="Attacker dice modifications">
-              <button
-                onclick={() => modifyAttack('focus')}
-                disabled={!game.ships[game.attack.attackerId]?.focus || !game.attack.attack.includes('focus')}
-                >Spend focus</button
-              ><button
-                onclick={() => modifyAttack('force')}
-                disabled={!game.ships[game.attack.attackerId]?.force || !game.attack.attack.includes('focus')}
-                >Spend Force</button
-              ><button onclick={() => modifyAttack('pass')}>Pass attack modification</button>
-            </nav>
-          {:else if game.pending === 'defender-modify'}
-            <nav class="modifier-controls" aria-label="Defender dice modifications">
-              <button
-                onclick={() => modifyDefense('focus')}
-                disabled={!game.ships[game.attack.defenderId]?.focus || !game.attack.defense.includes('focus')}
-                >Spend focus</button
-              ><button onclick={() => modifyDefense('evade')} disabled={!game.ships[game.attack.defenderId]?.evade}
-                >Spend evade</button
-              ><button onclick={() => modifyDefense('pass')}>Pass defense modification</button>
-            </nav>
-          {:else}<button onclick={resolveAttack}>Apply results</button>{/if}
-        {/if}
-      </div>
+        </div>
+      {/each}
     {/if}
   </section>
 
-  <aside class="rail right" aria-label="Public event log">
+  <aside class="rail right" aria-label="Public event log" data-latest={game.log.at(-1) ?? 'Waiting for first event.'}>
+    <div class="far-log-mirror" aria-hidden="true" data-latest={game.log.at(-1) ?? 'Waiting for first event.'}></div>
     <h2>FLIGHT LOG</h2>
     <ol>
       {#each game.log.slice(-6).reverse() as entry}<li>{entry}</li>{/each}
@@ -454,58 +522,6 @@
       >
     </nav>
   </section>
-  {#if game.phase === 'activation' && game.pending === 'action' && activeShip && activeManifest}
-    <nav
-      class:far-actions={activeShip.seat === 'imperial'}
-      class="action-strip"
-      aria-label={`${activeManifest.name} actions`}
-    >
-      <strong>{activeManifest.name}</strong>
-      {#each activeManifest.actions as action}
-        {#if action === 'barrel-roll'}
-          <button
-            onclick={() => act(activeShip!.id, action, undefined, 'left')}
-            disabled={activeShip.stress > 0 || activeShip.skipAction}
-            aria-label="Barrel roll left"
-          >
-            <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />← roll
-          </button>
-          <button
-            onclick={() => act(activeShip!.id, action, undefined, 'right')}
-            disabled={activeShip.stress > 0 || activeShip.skipAction}
-            aria-label="Barrel roll right"
-          >
-            <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />roll →
-          </button>
-        {:else}
-          <button
-            onclick={() => (action === 'lock' ? beginLock(activeShip!.id) : act(activeShip!.id, action))}
-            disabled={activeShip.stress > 0 || activeShip.skipAction}
-          >
-            <img src={`${assets}/assets/icons/action-${action}.png`} alt="" />{action}
-          </button>
-        {/if}
-      {/each}
-      {#each activeShip.damage.filter((card) => card.faceup && (card.id.startsWith('weapons-failure-') || card.id.startsWith('structural-damage-'))) as card}
-        <button
-          class="repair"
-          onclick={() => repair(activeShip!.id, card.id, card.title)}
-          disabled={activeShip.stress > 0 || activeShip.skipAction}
-          aria-label={`Repair ${card.title}`}>Repair {card.title}</button
-        >
-      {/each}
-      <button onclick={() => act(activeShip!.id, 'pass')}>Pass</button>
-    </nav>
-  {/if}
-  {#if game.phase === 'engagement' && game.pending === 'end'}<button class="end-round" onclick={endRound}
-      >Resolve End phase</button
-    >{/if}
-  {#if game.phase === 'finished'}<div class="result">
-      <b>{game.winner === 'draw' ? 'DRAW' : `${game.winner?.toUpperCase()} VICTORY`}</b><span
-        >The event history is complete.</span
-      ><a href={`${base}/replay?room=${room}`}>Review replay</a><button onclick={rematch}>Open rematch</button>
-    </div>{/if}
-  <p class="announcement" role="status">{notice}</p>
 </main>
 
 <style>
@@ -593,8 +609,7 @@
   .pair-card small {
     color: #9eb5bd;
   }
-  .edge button,
-  .primary {
+  .edge button {
     border: 1px solid #6fd4e8;
     border-radius: 7px;
     padding: 9px 18px;
@@ -619,17 +634,23 @@
     color: #b9e8cb;
   }
   .rail {
+    position: relative;
     z-index: 3;
+    overflow: hidden;
     padding: 28px 20px;
     background: #07111fbb;
     border-color: #5ebcd033;
   }
   .left {
     grid-area: left;
+    display: flex;
+    flex-direction: column;
     border-right: 1px solid;
   }
   .right {
     grid-area: right;
+    display: grid;
+    grid-template-rows: auto auto minmax(0, 1fr);
     border-left: 1px solid;
   }
   .wordmark {
@@ -637,20 +658,18 @@
     letter-spacing: 0.18em;
   }
   .phase {
-    margin-top: 5vh;
+    margin: 2vh 0 0;
     color: #efbb58;
     font: 700 clamp(18px, 1.5vw, 36px) 'Space Mono';
     text-transform: uppercase;
   }
   .rules {
-    position: absolute;
-    bottom: 15vh;
+    margin: auto 0 0;
     color: #7f9ca7;
     line-height: 1.6;
   }
   .view-readout {
-    position: absolute;
-    bottom: 12vh;
+    margin: 8px 0 0;
     color: #8fb0ba;
     font: 700 clamp(10px, 0.7vw, 16px) 'Space Mono';
   }
@@ -668,9 +687,29 @@
   .right ol {
     display: grid;
     gap: 16px;
+    align-content: start;
+    overflow: hidden;
     padding-left: 22px;
     color: #b8cbd2;
     font-size: clamp(12px, 0.9vw, 21px);
+  }
+  .far-log-mirror {
+    display: grid;
+    gap: 7px;
+    margin-bottom: 24px;
+    padding: 12px;
+    transform: rotate(180deg);
+    border-bottom: 1px solid #5ebcd044;
+    color: #b8cbd2;
+  }
+  .far-log-mirror::before {
+    color: #6fd4e8;
+    font: 700 clamp(11px, 0.8vw, 18px) 'Space Mono';
+    letter-spacing: 0.1em;
+    content: 'LATEST OUTCOME';
+  }
+  .far-log-mirror::after {
+    content: attr(data-latest);
   }
   .battlefield {
     position: relative;
@@ -737,56 +776,62 @@
     background: #07111fee;
     color: #efbb58;
     font: 700 clamp(10px, 0.72vw, 18px) 'Space Mono';
+    transform: rotate(calc(var(--seat-facing) - var(--view-rotation)));
   }
-  .center-message {
-    position: absolute;
-    z-index: 5;
-    left: 50%;
-    top: 50%;
+  .gutter-prompt {
     display: grid;
-    justify-items: center;
-    width: min(78%, 700px);
-    padding: clamp(18px, 3vw, 50px);
+    gap: 10px;
+    margin-top: 4vh;
+    padding: 14px;
     border: 1px solid #6fd4e866;
-    border-radius: 14px;
-    transform: translate(-50%, -50%) rotate(calc(-1 * var(--view-rotation)));
-    background: #07111fee;
-    text-align: center;
-    box-shadow: 0 20px 70px #000;
+    border-radius: 9px;
+    background: #0a1928e8;
   }
-  .center-message img {
-    width: clamp(84px, 10vw, 200px);
-  }
-  .center-message h1 {
-    margin: 15px 0 4px;
-    font: 700 clamp(17px, 1.8vw, 40px) 'Space Mono';
+  .gutter-prompt h1 {
+    margin: 0;
+    color: #efbb58;
+    font: 700 clamp(13px, 1vw, 23px) 'Space Mono';
     letter-spacing: 0.08em;
   }
-  .center-message p {
-    margin: 8px 0 18px;
+  .gutter-prompt p {
+    margin: 0;
     color: #b7cbd2;
-    font-size: clamp(12px, 1vw, 23px);
+    font-size: clamp(11px, 0.78vw, 18px);
   }
-  .compact {
-    width: min(65%, 560px);
-    padding: 24px;
+  .gutter-prompt a {
+    color: #6fd4e8;
   }
-  .primary {
-    min-height: 54px;
-    background: #b66c22;
-    border-color: #efbb58;
-    font-size: 1.08em;
+  .far-gutter-mirror {
+    display: grid;
+    gap: 6px;
+    margin: auto 0 18px;
+    padding: 12px;
+    transform: rotate(180deg);
+    border-top: 1px solid #5ebcd044;
+    color: #9ebac3;
+  }
+  .far-gutter-mirror::before {
+    color: #efbb58;
+    font: 700 clamp(11px, 0.8vw, 18px) 'Space Mono';
+    content: attr(data-title);
+  }
+  .far-gutter-mirror::after {
+    content: attr(data-detail);
+    font-size: clamp(10px, 0.7vw, 16px);
+  }
+  .gutter-action {
+    min-height: 44px;
+    border: 1px solid #efbb58;
+    border-radius: 6px;
+    background: #a85e1e;
+    color: #fff;
+    font-weight: 700;
   }
   .instruction {
-    position: absolute;
-    z-index: 6;
-    left: 50%;
-    top: 50%;
     display: grid;
     gap: 7px;
     justify-items: center;
     padding: 18px 28px;
-    transform: translate(-50%, -50%) rotate(calc(-1 * var(--view-rotation)));
     border: 1px solid #efbb58;
     border-radius: 10px;
     background: #07111feb;
@@ -798,7 +843,7 @@
     font: 700 1.1rem 'Space Mono';
   }
   .instruction button,
-  .dice-tray button {
+  .action-strip button {
     border: 1px solid #6fd4e8;
     border-radius: 6px;
     background: #17384c;
@@ -807,24 +852,17 @@
     pointer-events: auto;
   }
   .action-strip {
-    position: absolute;
-    z-index: 12;
-    left: 50%;
-    bottom: 11vh;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
+    justify-content: center;
     gap: 8px;
+    width: min(660px, 58vw);
     padding: 10px 16px;
-    transform: translateX(-50%);
     border: 1px solid #efbb58;
-    border-radius: 10px 10px 0 0;
+    border-radius: 10px;
     background: #071421f5;
-  }
-  .action-strip.far-actions {
-    top: 11vh;
-    bottom: auto;
-    transform: translateX(-50%) rotate(180deg);
-    border-radius: 0 0 10px 10px;
+    pointer-events: auto;
   }
   .action-strip button {
     display: flex;
@@ -846,102 +884,44 @@
     height: 30px;
     object-fit: contain;
   }
-  .dice-tray {
-    position: absolute;
-    z-index: 9;
-    left: 50%;
-    top: 50%;
-    display: grid;
-    gap: 12px;
-    justify-items: center;
-    min-width: 44%;
-    padding: 18px;
-    transform: translate(-50%, -50%) rotate(calc(-1 * var(--view-rotation)));
-    border: 1px solid #efbb58;
-    border-radius: 12px;
-    background: #07111ff5;
-  }
-  .dice-tray p {
-    margin: 0;
-    font-weight: 700;
-  }
-  .dice {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .dice img {
-    width: clamp(38px, 4vw, 72px);
-    aspect-ratio: 1;
-    object-fit: contain;
-  }
-  .dice i {
-    width: 2px;
-    height: 55px;
-    margin: 0 8px;
-    background: #78929c;
-  }
-  .modifier-controls {
-    display: flex;
-    gap: 8px;
-  }
-  .modifier-controls button {
-    min-height: 48px;
-    padding: 8px 14px;
-  }
-  .modifier-controls button:disabled {
-    opacity: 0.38;
-  }
-  .end-round {
-    position: absolute;
-    z-index: 12;
-    left: 50%;
-    bottom: calc(11vh + 30px);
-    transform: translateX(-50%);
-    border: 1px solid #efbb58;
-    border-radius: 7px;
-    padding: 10px 18px;
-    background: #a85e1e;
-    color: white;
-    font-weight: 700;
-  }
-  .result {
-    position: absolute;
-    z-index: 15;
-    left: 50%;
-    top: 50%;
-    display: grid;
-    gap: 12px;
-    padding: 40px 70px;
-    transform: translate(-50%, -50%);
-    border: 2px solid #efbb58;
-    border-radius: 14px;
-    background: #07111ff5;
-    text-align: center;
-  }
-  .result b {
+  .lock-instruction {
     color: #efbb58;
-    font: 700 2rem 'Space Mono';
-  }
-  .result a {
-    color: #6fd4e8;
-  }
-  .result button {
-    border: 1px solid #efbb58;
-    border-radius: 6px;
-    background: #a85e1e;
-    color: white;
     font-weight: 700;
   }
-  .announcement {
+  .ship-anchor {
     position: absolute;
     z-index: 10;
-    left: 50%;
-    bottom: calc(11vh + 10px);
-    margin: 0;
-    padding: 7px 16px;
-    transform: translateX(-50%);
-    border-radius: 30px;
+    left: clamp(22%, var(--prompt-x), 78%);
+    top: clamp(18%, var(--prompt-y), 82%);
+    transform: translate(-50%, 76px);
+    pointer-events: none;
+  }
+  .ship-anchor.above-ship {
+    transform: translate(-50%, calc(-100% - 76px));
+  }
+  .player-facing {
+    transform: rotate(calc(var(--seat-facing) - var(--view-rotation)));
+    transform-origin: center;
+  }
+  .combat-anchor {
+    z-index: 11;
+  }
+  .ship-anchor.combat-attacker {
+    transform: translate(calc(-100% - 72px), -50%);
+  }
+  .ship-anchor.combat-defender {
+    transform: translate(72px, -50%);
+  }
+  .combat-anchor .player-facing {
+    pointer-events: auto;
+  }
+  .result {
+    border-color: #efbb58;
+  }
+  .announcement {
+    margin: 18px 0 0;
+    padding: 9px 11px;
+    border-radius: 7px;
     background: #081522dd;
     color: #cce7ec;
     font-size: clamp(12px, 0.8vw, 18px);
@@ -961,7 +941,8 @@
     }
   }
   @media (prefers-reduced-motion: reduce) {
-    .battlefield {
+    .battlefield,
+    .player-facing {
       transition: none;
     }
   }
