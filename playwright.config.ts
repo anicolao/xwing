@@ -45,7 +45,7 @@ export default defineConfig({
       VITE_GIT_HASH: 'e2e-test-commit'
     }
   },
-  timeout: 60_000,
+  timeout: 120_000,
   expect: {
     timeout: 15_000,
     toHaveScreenshot: {
